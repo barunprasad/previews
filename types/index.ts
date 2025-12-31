@@ -19,6 +19,7 @@ export interface Project {
   thumbnailUrl: string | null;
   imageUrls: string[];
   deviceType: DeviceType;
+  background: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -33,6 +33,7 @@ async function getProjects(): Promise<Project[]> {
     thumbnailUrl: project.thumbnail_url,
     imageUrls: project.image_urls,
     deviceType: project.device_type,
+    background: project.background,
     createdAt: project.created_at,
     updatedAt: project.updated_at,
   }));

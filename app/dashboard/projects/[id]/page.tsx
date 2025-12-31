@@ -32,6 +32,7 @@ async function getProject(id: string): Promise<Project | null> {
     thumbnailUrl: data.thumbnail_url,
     imageUrls: data.image_urls,
     deviceType: data.device_type,
+    background: data.background,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };

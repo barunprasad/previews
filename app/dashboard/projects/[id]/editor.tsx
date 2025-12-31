@@ -3,13 +3,16 @@
 import { useState, useCallback, useRef, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Upload, Loader2, ImagePlus, Trash2, Save, Download } from "lucide-react";
-import { Canvas, FabricImage } from "fabric";
+import { ArrowLeft, Upload, Loader2, ImagePlus, Trash2, Save, Download, Undo2, Redo2 } from "lucide-react";
+import { Canvas, FabricImage, FabricText, Gradient } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { DevicePicker } from "@/components/editor/device-picker";
 import { ExportDialog } from "@/components/editor/export-dialog";
+import { BackgroundPicker } from "@/components/editor/background-picker";
+import { TextTool } from "@/components/editor/text-tool";
+import { useCanvasHistory } from "@/hooks/use-canvas-history";
 import {
   Tooltip,
   TooltipContent,
@@ -38,6 +41,8 @@ export function ProjectEditor({
   const fabricRef = useRef<Canvas | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isInitialBackgroundRef = useRef(true);
+  const isUpdatingBackgroundRef = useRef(false);
 
   const [selectedDevice, setSelectedDevice] = useState(defaultDevice);
   const [hasScreenshot, setHasScreenshot] = useState(false);
@@ -45,6 +50,10 @@ export function ProjectEditor({
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isSaving, startSaving] = useTransition();
   const [isCanvasReady, setIsCanvasReady] = useState(false);
+  const [background, setBackground] = useState(project.background || "#0a0a0a");
+
+  // History management for undo/redo
+  const { saveState, undo, redo, initHistory, canUndo, canRedo } = useCanvasHistory();
 
   // Calculate scaled canvas dimensions
   const canvasWidth = Math.round(selectedDevice.width * CANVAS_SCALE);
@@ -67,24 +76,90 @@ export function ProjectEditor({
     fabricRef.current = canvas;
     setIsCanvasReady(true);
 
+    // Set up event listeners for history tracking
+    const handleStateChange = () => {
+      // Skip if disposed or if we're updating background (handled separately)
+      if (!isDisposed && !isUpdatingBackgroundRef.current) {
+        saveState(canvas);
+      }
+    };
+
+    canvas.on("object:added", handleStateChange);
+    canvas.on("object:removed", handleStateChange);
+    canvas.on("object:modified", handleStateChange);
+
+    // Helper to apply background - inline because we can't use hooks in callback
+    const applyBg = (c: Canvas, bg: string) => {
+      const isGradient = bg.startsWith("linear-gradient");
+      if (isGradient) {
+        const match = bg.match(/linear-gradient\((\d+)deg,\s*(.+)\)/);
+        if (match) {
+          const angle = parseInt(match[1]);
+          const colorStops = match[2].split(/,\s*(?=#)/).map((stop) => {
+            const parts = stop.trim().split(/\s+/);
+            const color = parts[0];
+            const offset = parseInt(parts[1]) / 100;
+            return { offset, color };
+          });
+
+          let x1 = 0, y1 = 0, x2 = c.width!, y2 = c.height!;
+          if (angle === 90) {
+            x1 = 0; y1 = c.height! / 2;
+            x2 = c.width!; y2 = c.height! / 2;
+          } else if (angle === 180) {
+            x1 = c.width! / 2; y1 = 0;
+            x2 = c.width! / 2; y2 = c.height!;
+          } else if (angle === 0 || angle === 360) {
+            x1 = c.width! / 2; y1 = c.height!;
+            x2 = c.width! / 2; y2 = 0;
+          }
+
+          const gradient = new Gradient({
+            type: "linear",
+            coords: { x1, y1, x2, y2 },
+            colorStops,
+          });
+          const canvasGradient = gradient.toLive(c.getContext());
+          c.backgroundColor = canvasGradient as unknown as string;
+        }
+      } else {
+        c.backgroundColor = bg;
+      }
+    };
+
     // Load existing canvas data if available
     if (project.canvasJson) {
       canvas.loadFromJSON(project.canvasJson).then(() => {
         // Check if canvas was disposed during async load
         if (isDisposed) return;
-        canvas.renderAll();
+
         const objects = canvas.getObjects();
         setHasScreenshot(objects.length > 0);
+
+        // Apply background from saved project (gradients can't be serialized in canvas JSON)
+        if (project.background) {
+          applyBg(canvas, project.background);
+        }
+
+        canvas.renderAll();
+        // Initialize history after loading
+        initHistory(canvas);
       }).catch((err) => {
         // Ignore errors if canvas was disposed
         if (!isDisposed) {
           console.error("Error loading canvas:", err);
         }
       });
+    } else {
+      // Initialize history for new canvas
+      initHistory(canvas);
     }
 
     return () => {
       isDisposed = true;
+      canvas.off("object:added", handleStateChange);
+      canvas.off("object:removed", handleStateChange);
+      canvas.off("object:modified", handleStateChange);
       canvas.dispose();
       fabricRef.current = null;
     };
@@ -104,6 +179,122 @@ export function ProjectEditor({
     fabricRef.current.renderAll();
   }, [selectedDevice.width, selectedDevice.height]);
 
+  // Helper to parse CSS gradient to Fabric.js gradient
+  const parseGradient = useCallback((gradientStr: string, width: number, height: number) => {
+    // Parse "linear-gradient(135deg, #color1 0%, #color2 50%, #color3 100%)"
+    const match = gradientStr.match(/linear-gradient\((\d+)deg,\s*(.+)\)/);
+    if (!match) return null;
+
+    const angle = parseInt(match[1]);
+    const colorStops = match[2].split(/,\s*(?=#)/).map((stop) => {
+      const parts = stop.trim().split(/\s+/);
+      const color = parts[0];
+      const offset = parseInt(parts[1]) / 100;
+      return { offset, color };
+    });
+
+    // Convert CSS angle to Fabric.js gradient coordinates
+    // All our gradients use 135deg (diagonal top-left to bottom-right)
+    // For simplicity, use corner-to-corner for 135deg
+    let x1 = 0, y1 = 0, x2 = width, y2 = height;
+
+    // Adjust based on angle if needed
+    if (angle === 90) {
+      // Left to right
+      x1 = 0; y1 = height / 2;
+      x2 = width; y2 = height / 2;
+    } else if (angle === 180) {
+      // Top to bottom
+      x1 = width / 2; y1 = 0;
+      x2 = width / 2; y2 = height;
+    } else if (angle === 0 || angle === 360) {
+      // Bottom to top
+      x1 = width / 2; y1 = height;
+      x2 = width / 2; y2 = 0;
+    }
+    // Default (135deg): top-left to bottom-right, already set
+
+    return new Gradient({
+      type: "linear",
+      coords: { x1, y1, x2, y2 },
+      colorStops,
+    });
+  }, []);
+
+  // Helper to apply background to canvas
+  const applyBackground = useCallback((canvas: Canvas, bg: string) => {
+    const isGradient = bg.startsWith("linear-gradient");
+
+    if (isGradient) {
+      const gradient = parseGradient(bg, canvas.width!, canvas.height!);
+      if (gradient) {
+        const canvasGradient = gradient.toLive(canvas.getContext());
+        canvas.backgroundColor = canvasGradient as unknown as string;
+      } else {
+        canvas.backgroundColor = "#0a0a0a";
+      }
+    } else {
+      canvas.backgroundColor = bg;
+    }
+
+    canvas.renderAll();
+  }, [parseGradient]);
+
+  // Update canvas background when it changes
+  useEffect(() => {
+    if (!fabricRef.current) return;
+
+    const canvas = fabricRef.current;
+
+    // Prevent event-based history saves during background update
+    isUpdatingBackgroundRef.current = true;
+
+    applyBackground(canvas, background);
+
+    // Re-enable event-based history saves
+    isUpdatingBackgroundRef.current = false;
+
+    // Save state for undo/redo (skip initial render)
+    if (isCanvasReady && !isInitialBackgroundRef.current) {
+      saveState(canvas);
+    }
+    isInitialBackgroundRef.current = false;
+  }, [background, applyBackground, isCanvasReady, saveState]);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!fabricRef.current) return;
+
+      // Check for Cmd/Ctrl+Z for undo
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        if (canUndo) {
+          undo(fabricRef.current);
+        }
+      }
+
+      // Check for Cmd/Ctrl+Shift+Z for redo
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && e.shiftKey) {
+        e.preventDefault();
+        if (canRedo) {
+          redo(fabricRef.current);
+        }
+      }
+
+      // Also support Cmd/Ctrl+Y for redo
+      if ((e.metaKey || e.ctrlKey) && e.key === "y") {
+        e.preventDefault();
+        if (canRedo) {
+          redo(fabricRef.current);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [canUndo, canRedo, undo, redo]);
+
   // Add screenshot to canvas
   const addScreenshot = useCallback(
     async (url: string) => {
@@ -111,9 +302,8 @@ export function ProjectEditor({
 
       const canvas = fabricRef.current;
 
-      // Clear existing objects
-      canvas.clear();
-      canvas.backgroundColor = "#0a0a0a";
+      // Clear existing objects (background is preserved as canvas.backgroundColor)
+      canvas.getObjects().forEach((obj) => canvas.remove(obj));
 
       try {
         const img = await FabricImage.fromURL(url, {
@@ -224,14 +414,69 @@ export function ProjectEditor({
     [handleFileUpload]
   );
 
-  // Clear canvas
+  // Clear canvas (remove all objects, background is preserved)
   const handleClear = useCallback(() => {
     if (!fabricRef.current) return;
-    fabricRef.current.clear();
-    fabricRef.current.backgroundColor = "#0a0a0a";
-    fabricRef.current.renderAll();
+
+    const canvas = fabricRef.current;
+
+    // Remove all objects (background is preserved as canvas.backgroundColor)
+    canvas.getObjects().forEach((obj) => canvas.remove(obj));
+
+    canvas.renderAll();
     setHasScreenshot(false);
   }, []);
+
+  // Add text to canvas
+  const handleAddText = useCallback(
+    (options: { text: string; fontSize: number; fontWeight: string; fill: string }) => {
+      if (!fabricRef.current) return;
+
+      const canvas = fabricRef.current;
+      const text = new FabricText(options.text, {
+        left: canvas.width! / 2,
+        top: canvas.height! / 2,
+        fontSize: options.fontSize,
+        fontWeight: options.fontWeight,
+        fill: options.fill,
+        fontFamily: "system-ui, -apple-system, sans-serif",
+        originX: "center",
+        originY: "center",
+      });
+
+      canvas.add(text);
+      canvas.setActiveObject(text);
+      canvas.renderAll();
+      setHasScreenshot(true);
+
+      toast.success("Text added");
+    },
+    []
+  );
+
+  // Helper to restore background state from canvas after undo/redo
+  const restoreBackgroundState = useCallback((canvas: Canvas) => {
+    // For solid colors, restore from canvas.backgroundColor
+    // For gradients, the visual is restored but we can't easily reconstruct the CSS string
+    if (canvas.backgroundColor && typeof canvas.backgroundColor === "string") {
+      setBackground(canvas.backgroundColor);
+    }
+    // Note: Gradients are restored visually by loadFromJSON, but the picker won't show the exact gradient
+  }, []);
+
+  // Undo handler
+  const handleUndo = useCallback(async () => {
+    if (!fabricRef.current || !canUndo) return;
+    await undo(fabricRef.current);
+    restoreBackgroundState(fabricRef.current);
+  }, [undo, canUndo, restoreBackgroundState]);
+
+  // Redo handler
+  const handleRedo = useCallback(async () => {
+    if (!fabricRef.current || !canRedo) return;
+    await redo(fabricRef.current);
+    restoreBackgroundState(fabricRef.current);
+  }, [redo, canRedo, restoreBackgroundState]);
 
   // Save project
   const handleSave = useCallback(() => {
@@ -249,6 +494,7 @@ export function ProjectEditor({
         projectId: project.id,
         canvasJson,
         thumbnailUrl,
+        background, // Save the background CSS string
       });
 
       if (result.success) {
@@ -257,7 +503,7 @@ export function ProjectEditor({
         toast.error(result.error || "Failed to save project");
       }
     });
-  }, [project.id]);
+  }, [project.id, background]);
 
   // Export canvas
   const handleExport = useCallback(
@@ -314,6 +560,8 @@ export function ProjectEditor({
               onDeviceChange={handleDeviceChange}
             />
 
+            <BackgroundPicker value={background} onChange={setBackground} />
+
             <Separator orientation="vertical" className="mx-2 h-6" />
 
             {/* Inline toolbar */}
@@ -340,6 +588,13 @@ export function ProjectEditor({
 
             <Tooltip>
               <TooltipTrigger asChild>
+                <TextTool onAddText={handleAddText} />
+              </TooltipTrigger>
+              <TooltipContent>Add text</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -350,6 +605,36 @@ export function ProjectEditor({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Clear</TooltipContent>
+            </Tooltip>
+
+            <Separator orientation="vertical" className="mx-1 h-6" />
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleUndo}
+                  disabled={!canUndo}
+                >
+                  <Undo2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Undo</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleRedo}
+                  disabled={!canRedo}
+                >
+                  <Redo2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Redo</TooltipContent>
             </Tooltip>
 
             <Separator orientation="vertical" className="mx-1 h-6" />

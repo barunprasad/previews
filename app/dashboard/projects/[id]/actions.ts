@@ -9,6 +9,7 @@ interface SaveProjectData {
   canvasJson: object;
   thumbnailUrl?: string;
   imageUrls?: string[];
+  background?: string;
 }
 
 export async function saveProjectAction(
@@ -30,6 +31,7 @@ export async function saveProjectAction(
       canvas_json: data.canvasJson,
       thumbnail_url: data.thumbnailUrl,
       image_urls: data.imageUrls,
+      background: data.background,
       updated_at: new Date().toISOString(),
     })
     .eq("id", data.projectId)
