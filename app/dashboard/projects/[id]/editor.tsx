@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Upload, Loader2, ImagePlus, Trash2, Save, Download, Undo2, Redo2 } from "lucide-react";
+import { ArrowLeft, Upload, Loader2, ImagePlus, Trash2, Save, Download, Undo2, Redo2, MoreHorizontal, Type, Palette, Smartphone, ZoomIn, ZoomOut, Maximize } from "lucide-react";
 import { Canvas, FabricImage, FabricText, Gradient } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -19,21 +19,37 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { saveProjectAction } from "./actions";
-import type { Project, DeviceFrame } from "@/types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+} from "@/components/ui/dropdown-menu";
+import { createClient } from "@/lib/supabase/client";
+import { PreviewStrip } from "@/components/editor/preview-strip";
+import type { Project, DeviceFrame, Preview } from "@/types";
 import { cn } from "@/lib/utils";
 
-// Scale factor for working canvas
-const CANVAS_SCALE = 1;
+// Zoom levels
+const ZOOM_MIN = 0.1;
+const ZOOM_MAX = 1;
+const ZOOM_STEP = 0.1;
+const ZOOM_DEFAULT = 0.85; // Start at 85%
 
 interface ProjectEditorProps {
   project: Project;
+  initialPreviews: Preview[];
   devices: DeviceFrame[];
   defaultDevice: DeviceFrame;
 }
 
 export function ProjectEditor({
   project,
+  initialPreviews,
   devices,
   defaultDevice,
 }: ProjectEditorProps) {
@@ -43,6 +59,8 @@ export function ProjectEditor({
   const containerRef = useRef<HTMLDivElement>(null);
   const isInitialBackgroundRef = useRef(true);
   const isUpdatingBackgroundRef = useRef(false);
+  const isLoadingPreviewRef = useRef(false);
+  const markDirtyRef = useRef<() => void>(() => {});
 
   const [selectedDevice, setSelectedDevice] = useState(defaultDevice);
   const [hasScreenshot, setHasScreenshot] = useState(false);
@@ -50,14 +68,43 @@ export function ProjectEditor({
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isSaving, startSaving] = useTransition();
   const [isCanvasReady, setIsCanvasReady] = useState(false);
-  const [background, setBackground] = useState(project.background || "#0a0a0a");
+
+  // Preview state
+  const [previews, setPreviews] = useState<Preview[]>(initialPreviews);
+  const [activePreview, setActivePreview] = useState<Preview | null>(
+    initialPreviews[0] || null
+  );
+  const [background, setBackground] = useState(
+    initialPreviews[0]?.background || "#0a0a0a"
+  );
+
+  // Zoom state
+  const [zoom, setZoom] = useState(ZOOM_DEFAULT);
+
+  // Track which previews have unsaved changes
+  const [dirtyPreviewIds, setDirtyPreviewIds] = useState<Set<string>>(new Set());
+
+  // Mark active preview as dirty
+  const markDirty = useCallback(() => {
+    if (activePreview && !isLoadingPreviewRef.current) {
+      setDirtyPreviewIds((prev) => {
+        if (prev.has(activePreview.id)) return prev;
+        const next = new Set(prev);
+        next.add(activePreview.id);
+        return next;
+      });
+    }
+  }, [activePreview]);
+
+  // Keep ref updated for use in canvas event handlers
+  markDirtyRef.current = markDirty;
 
   // History management for undo/redo
   const { saveState, undo, redo, initHistory, canUndo, canRedo } = useCanvasHistory();
 
-  // Calculate scaled canvas dimensions
-  const canvasWidth = Math.round(selectedDevice.width * CANVAS_SCALE);
-  const canvasHeight = Math.round(selectedDevice.height * CANVAS_SCALE);
+  // Canvas dimensions are full device size (zoom is applied via CSS transform)
+  const canvasWidth = selectedDevice.width;
+  const canvasHeight = selectedDevice.height;
 
   // Initialize Fabric.js canvas
   useEffect(() => {
@@ -76,11 +123,12 @@ export function ProjectEditor({
     fabricRef.current = canvas;
     setIsCanvasReady(true);
 
-    // Set up event listeners for history tracking
+    // Set up event listeners for history tracking and dirty state
     const handleStateChange = () => {
       // Skip if disposed or if we're updating background (handled separately)
       if (!isDisposed && !isUpdatingBackgroundRef.current) {
         saveState(canvas);
+        markDirtyRef.current();
       }
     };
 
@@ -127,18 +175,19 @@ export function ProjectEditor({
       }
     };
 
-    // Load existing canvas data if available
-    if (project.canvasJson) {
-      canvas.loadFromJSON(project.canvasJson).then(() => {
+    // Load existing canvas data from active preview
+    const firstPreview = initialPreviews[0];
+    if (firstPreview?.canvasJson) {
+      canvas.loadFromJSON(firstPreview.canvasJson).then(() => {
         // Check if canvas was disposed during async load
         if (isDisposed) return;
 
         const objects = canvas.getObjects();
         setHasScreenshot(objects.length > 0);
 
-        // Apply background from saved project (gradients can't be serialized in canvas JSON)
-        if (project.background) {
-          applyBg(canvas, project.background);
+        // Apply background from saved preview (gradients can't be serialized in canvas JSON)
+        if (firstPreview.background) {
+          applyBg(canvas, firstPreview.background);
         }
 
         canvas.renderAll();
@@ -169,8 +218,8 @@ export function ProjectEditor({
   useEffect(() => {
     if (!fabricRef.current) return;
 
-    const newWidth = Math.round(selectedDevice.width * CANVAS_SCALE);
-    const newHeight = Math.round(selectedDevice.height * CANVAS_SCALE);
+    const newWidth = selectedDevice.width;
+    const newHeight = selectedDevice.height;
 
     fabricRef.current.setDimensions({
       width: newWidth,
@@ -254,12 +303,13 @@ export function ProjectEditor({
     // Re-enable event-based history saves
     isUpdatingBackgroundRef.current = false;
 
-    // Save state for undo/redo (skip initial render)
-    if (isCanvasReady && !isInitialBackgroundRef.current) {
+    // Save state for undo/redo (skip initial render and preview loading)
+    if (isCanvasReady && !isInitialBackgroundRef.current && !isLoadingPreviewRef.current) {
       saveState(canvas);
+      markDirty();
     }
     isInitialBackgroundRef.current = false;
-  }, [background, applyBackground, isCanvasReady, saveState]);
+  }, [background, applyBackground, isCanvasReady, saveState, markDirty]);
 
   // Keyboard shortcuts for undo/redo
   useEffect(() => {
@@ -478,10 +528,11 @@ export function ProjectEditor({
     restoreBackgroundState(fabricRef.current);
   }, [redo, canRedo, restoreBackgroundState]);
 
-  // Save project
+  // Save all dirty previews
   const handleSave = useCallback(() => {
-    if (!fabricRef.current) return;
+    if (!fabricRef.current || !activePreview) return;
 
+    // First, update the active preview's current state
     const canvasJson = fabricRef.current.toJSON();
     const thumbnailUrl = fabricRef.current.toDataURL({
       format: "png",
@@ -489,21 +540,130 @@ export function ProjectEditor({
       multiplier: 0.2,
     });
 
-    startSaving(async () => {
-      const result = await saveProjectAction({
-        projectId: project.id,
-        canvasJson,
-        thumbnailUrl,
-        background, // Save the background CSS string
-      });
+    // Update active preview in local state first
+    const updatedPreviews = previews.map((p) =>
+      p.id === activePreview.id
+        ? { ...p, canvasJson, thumbnailUrl, background }
+        : p
+    );
+    setPreviews(updatedPreviews);
 
-      if (result.success) {
-        toast.success("Project saved");
+    // Get all dirty previews to save
+    const previewsToSave = updatedPreviews.filter((p) => dirtyPreviewIds.has(p.id));
+
+    if (previewsToSave.length === 0) {
+      toast.info("No changes to save");
+      return;
+    }
+
+    startSaving(async () => {
+      const supabase = createClient();
+
+      // Save all dirty previews in parallel
+      const results = await Promise.all(
+        previewsToSave.map((preview) =>
+          supabase
+            .from("previews")
+            .update({
+              canvas_json: preview.canvasJson,
+              thumbnail_url: preview.thumbnailUrl,
+              background: preview.background,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", preview.id)
+        )
+      );
+
+      const failed = results.filter((r) => r.error);
+
+      if (failed.length === 0) {
+        // Clear all dirty flags
+        setDirtyPreviewIds(new Set());
+        toast.success(`Saved ${previewsToSave.length} preview${previewsToSave.length > 1 ? "s" : ""}`);
       } else {
-        toast.error(result.error || "Failed to save project");
+        toast.error(`Failed to save ${failed.length} preview(s)`);
       }
     });
-  }, [project.id, background]);
+  }, [activePreview, background, previews, dirtyPreviewIds]);
+
+  // Handle preview selection
+  const handlePreviewSelect = useCallback(
+    async (preview: Preview) => {
+      if (!fabricRef.current || preview.id === activePreview?.id) return;
+
+      // Save current preview first (optional auto-save)
+      const canvas = fabricRef.current;
+      const canvasJson = canvas.toJSON();
+      const thumbnailUrl = canvas.toDataURL({
+        format: "png",
+        quality: 0.5,
+        multiplier: 0.2,
+      });
+
+      // Update current preview in local state
+      setPreviews((prev) =>
+        prev.map((p) =>
+          p.id === activePreview?.id
+            ? { ...p, canvasJson, thumbnailUrl, background }
+            : p
+        )
+      );
+
+      // Load new preview
+      isLoadingPreviewRef.current = true;
+      setActivePreview(preview);
+
+      // Apply background first (before clearing, so we know what to restore)
+      const newBg = preview.background || "#0a0a0a";
+
+      // Clear canvas and load new preview data
+      canvas.clear();
+
+      // Immediately apply background after clear (clear() resets backgroundColor)
+      applyBackground(canvas, newBg);
+
+      if (preview.canvasJson) {
+        await canvas.loadFromJSON(preview.canvasJson);
+        // Re-apply background after loadFromJSON (it may override)
+        applyBackground(canvas, newBg);
+      }
+
+      // Update React state to sync
+      setBackground(newBg);
+
+      const objects = canvas.getObjects();
+      setHasScreenshot(objects.length > 0);
+
+      canvas.renderAll();
+      initHistory(canvas);
+
+      isLoadingPreviewRef.current = false;
+    },
+    [activePreview, background, initHistory, applyBackground]
+  );
+
+  // Handle new preview created
+  const handlePreviewCreated = useCallback((preview: Preview) => {
+    setPreviews((prev) => [...prev, preview]);
+    // Auto-switch to new preview
+    handlePreviewSelect(preview);
+  }, [handlePreviewSelect]);
+
+  // Handle preview deleted
+  const handlePreviewDeleted = useCallback(
+    (previewId: string) => {
+      setPreviews((prev) => prev.filter((p) => p.id !== previewId));
+
+      // If deleted preview was active, switch to first remaining
+      if (activePreview?.id === previewId) {
+        const remaining = previews.filter((p) => p.id !== previewId);
+        if (remaining.length > 0) {
+          handlePreviewSelect(remaining[0]);
+        }
+      }
+    },
+    [activePreview, previews, handlePreviewSelect]
+  );
 
   // Export canvas
   const handleExport = useCallback(
@@ -533,27 +693,85 @@ export function ProjectEditor({
     setSelectedDevice(device);
   }, []);
 
+  // Zoom handlers
+  const handleZoomIn = useCallback(() => {
+    setZoom((z) => Math.min(z + ZOOM_STEP, ZOOM_MAX));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoom((z) => Math.max(z - ZOOM_STEP, ZOOM_MIN));
+  }, []);
+
+  const handleFitToScreen = useCallback(() => {
+    if (!containerRef.current) return;
+
+    const containerWidth = containerRef.current.clientWidth - 32; // padding
+    const containerHeight = containerRef.current.clientHeight - 32;
+
+    const scaleX = containerWidth / canvasWidth;
+    const scaleY = containerHeight / canvasHeight;
+    const fitZoom = Math.min(scaleX, scaleY, ZOOM_MAX);
+
+    setZoom(Math.max(fitZoom, ZOOM_MIN));
+  }, [canvasWidth, canvasHeight]);
+
+  // Keyboard shortcuts for zoom
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Zoom in: Cmd/Ctrl + =
+      if ((e.metaKey || e.ctrlKey) && (e.key === "=" || e.key === "+")) {
+        e.preventDefault();
+        handleZoomIn();
+      }
+      // Zoom out: Cmd/Ctrl + -
+      if ((e.metaKey || e.ctrlKey) && e.key === "-") {
+        e.preventDefault();
+        handleZoomOut();
+      }
+      // Fit to screen: Cmd/Ctrl + 0
+      if ((e.metaKey || e.ctrlKey) && e.key === "0") {
+        e.preventDefault();
+        handleFitToScreen();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleZoomIn, handleZoomOut, handleFitToScreen]);
+
   return (
     <TooltipProvider delayDuration={300}>
       {/* Editor container - covers entire SidebarInset area */}
       <div className="absolute inset-0 z-50 flex flex-col bg-background">
         {/* Editor header with all controls */}
-        <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-4">
-          <div className="flex items-center gap-2">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-2 md:px-4">
+          {/* Left side - consistent across breakpoints */}
+          <div className="flex items-center gap-1 md:gap-2">
             <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mx-2 h-4" />
+            <Separator orientation="vertical" className="mx-1 md:mx-2 h-4" />
             <Button variant="ghost" size="icon" asChild>
               <Link href="/dashboard/projects">
                 <ArrowLeft className="h-4 w-4" />
                 <span className="sr-only">Back to projects</span>
               </Link>
             </Button>
-            <div className="ml-2">
-              <h1 className="text-sm font-semibold">{project.name}</h1>
+            <div className="ml-1 md:ml-2">
+              <h1 className="text-sm font-semibold truncate max-w-[100px] sm:max-w-[200px] md:max-w-none">{project.name}</h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
+          {/* Hidden file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/*"
+            className="hidden"
+          />
+
+          {/* Desktop toolbar - hidden on mobile, scrollable */}
+          <div className="hidden md:flex items-center overflow-x-auto">
+            <div className="flex shrink-0 items-center gap-1">
             <DevicePicker
               deviceType={project.deviceType as "iphone" | "android"}
               selectedDevice={selectedDevice}
@@ -563,15 +781,6 @@ export function ProjectEditor({
             <BackgroundPicker value={background} onChange={setBackground} />
 
             <Separator orientation="vertical" className="mx-2 h-6" />
-
-            {/* Inline toolbar */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept="image/*"
-              className="hidden"
-            />
 
             <Tooltip>
               <TooltipTrigger asChild>
@@ -639,6 +848,54 @@ export function ProjectEditor({
 
             <Separator orientation="vertical" className="mx-1 h-6" />
 
+            {/* Zoom controls */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleZoomOut}
+                  disabled={zoom <= ZOOM_MIN}
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Zoom out</TooltipContent>
+            </Tooltip>
+
+            <span className="w-12 text-center text-xs text-muted-foreground">
+              {Math.round(zoom * 100)}%
+            </span>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleZoomIn}
+                  disabled={zoom >= ZOOM_MAX}
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Zoom in</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleFitToScreen}
+                >
+                  <Maximize className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Fit to screen</TooltipContent>
+            </Tooltip>
+
+            <Separator orientation="vertical" className="mx-1 h-6" />
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -646,15 +903,23 @@ export function ProjectEditor({
                   size="icon"
                   onClick={handleSave}
                   disabled={isSaving}
+                  className="relative"
                 >
                   {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Save className="h-4 w-4" />
                   )}
+                  {dirtyPreviewIds.size > 0 && !isSaving && (
+                    <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-orange-500" />
+                  )}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Save</TooltipContent>
+              <TooltipContent>
+                {dirtyPreviewIds.size > 0
+                  ? `Save (${dirtyPreviewIds.size} unsaved)`
+                  : "Save"}
+              </TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -670,6 +935,136 @@ export function ProjectEditor({
               </TooltipTrigger>
               <TooltipContent>Export</TooltipContent>
             </Tooltip>
+            </div>
+          </div>
+
+          {/* Mobile toolbar - visible only on mobile */}
+          <div className="flex md:hidden items-center gap-1">
+            {/* Hidden TextTool for mobile triggering */}
+            <div className="hidden">
+              <TextTool onAddText={handleAddText} />
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreHorizontal className="h-4 w-4" />
+                  <span className="sr-only">Tools menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                  <ImagePlus className="h-4 w-4" />
+                  Upload Screenshot
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    // Trigger text tool - we'll need to handle this differently
+                    const textToolButton = document.querySelector('[data-text-tool-trigger]') as HTMLButtonElement;
+                    textToolButton?.click();
+                  }}
+                >
+                  <Type className="h-4 w-4" />
+                  Add Text
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleClear}
+                  disabled={!hasScreenshot}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Clear Canvas
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Smartphone className="h-4 w-4" />
+                    Device: {selectedDevice.name}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {devices.map((device) => (
+                      <DropdownMenuItem
+                        key={device.id}
+                        onClick={() => handleDeviceChange(device)}
+                      >
+                        {device.name}
+                        {device.id === selectedDevice.id && " (current)"}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem
+                  onClick={handleUndo}
+                  disabled={!canUndo}
+                >
+                  <Undo2 className="h-4 w-4" />
+                  Undo
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleRedo}
+                  disabled={!canRedo}
+                >
+                  <Redo2 className="h-4 w-4" />
+                  Redo
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
+                <div className="flex items-center justify-between px-2 py-1.5">
+                  <span className="text-sm text-muted-foreground">Zoom</span>
+                  <span className="text-sm font-medium">{Math.round(zoom * 100)}%</span>
+                </div>
+                <DropdownMenuItem
+                  onClick={handleZoomIn}
+                  disabled={zoom >= ZOOM_MAX}
+                >
+                  <ZoomIn className="h-4 w-4" />
+                  Zoom In
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleZoomOut}
+                  disabled={zoom <= ZOOM_MIN}
+                >
+                  <ZoomOut className="h-4 w-4" />
+                  Zoom Out
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleFitToScreen}>
+                  <Maximize className="h-4 w-4" />
+                  Fit to Screen
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <BackgroundPicker value={background} onChange={setBackground} />
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="relative"
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {dirtyPreviewIds.size > 0 && !isSaving && (
+                <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-orange-500" />
+              )}
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsExportOpen(true)}
+              disabled={!hasScreenshot}
+            >
+              <Download className="h-4 w-4" />
+            </Button>
           </div>
         </header>
 
@@ -684,14 +1079,22 @@ export function ProjectEditor({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          {/* Canvas wrapper */}
+          {/* Canvas wrapper with zoom transform */}
           <div
-            className="relative shrink-0 overflow-hidden rounded-2xl shadow-2xl"
+            className="relative shrink-0 overflow-hidden rounded-2xl shadow-2xl transition-transform duration-150"
             style={{
-              width: canvasWidth,
-              height: canvasHeight,
+              width: canvasWidth * zoom,
+              height: canvasHeight * zoom,
             }}
           >
+            <div
+              style={{
+                transform: `scale(${zoom})`,
+                transformOrigin: "top left",
+                width: canvasWidth,
+                height: canvasHeight,
+              }}
+            >
             <canvas ref={canvasRef} />
 
             {/* Empty state overlay */}
@@ -728,8 +1131,19 @@ export function ProjectEditor({
                 <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
               </div>
             )}
+            </div>
           </div>
         </div>
+
+        {/* Preview strip at bottom */}
+        <PreviewStrip
+          projectId={project.id}
+          previews={previews}
+          activePreviewId={activePreview?.id || null}
+          onPreviewSelect={handlePreviewSelect}
+          onPreviewCreated={handlePreviewCreated}
+          onPreviewDeleted={handlePreviewDeleted}
+        />
 
         {/* Export dialog */}
         <ExportDialog

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { ProjectsGrid, ProjectsGridSkeleton } from "@/components/dashboard/projects-grid";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import type { Project } from "@/types";
+import type { Project, Preview } from "@/types";
 
 async function getProjects(): Promise<Project[]> {
   const supabase = await createClient();
@@ -13,9 +13,18 @@ async function getProjects(): Promise<Project[]> {
 
   if (!user) return [];
 
+  // Fetch projects with their previews
   const { data, error } = await supabase
     .from("projects")
-    .select("*")
+    .select(`
+      *,
+      previews (
+        id,
+        name,
+        thumbnail_url,
+        sort_order
+      )
+    `)
     .eq("user_id", user.id)
     .order("updated_at", { ascending: false });
 
@@ -24,19 +33,32 @@ async function getProjects(): Promise<Project[]> {
     return [];
   }
 
-  return data.map((project) => ({
-    id: project.id,
-    userId: project.user_id,
-    name: project.name,
-    description: project.description,
-    canvasJson: project.canvas_json,
-    thumbnailUrl: project.thumbnail_url,
-    imageUrls: project.image_urls,
-    deviceType: project.device_type,
-    background: project.background,
-    createdAt: project.created_at,
-    updatedAt: project.updated_at,
-  }));
+  return data.map((project) => {
+    // Sort previews by sort_order
+    const sortedPreviews = (project.previews || [])
+      .sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order)
+      .map((p: { id: string; name: string; thumbnail_url: string | null; sort_order: number }) => ({
+        id: p.id,
+        thumbnailUrl: p.thumbnail_url,
+        name: p.name,
+        sortOrder: p.sort_order,
+      }));
+
+    return {
+      id: project.id,
+      userId: project.user_id,
+      name: project.name,
+      description: project.description,
+      canvasJson: project.canvas_json,
+      thumbnailUrl: project.thumbnail_url,
+      imageUrls: project.image_urls,
+      deviceType: project.device_type,
+      background: project.background,
+      createdAt: project.created_at,
+      updatedAt: project.updated_at,
+      previews: sortedPreviews,
+    };
+  });
 }
 
 async function ProjectsList() {

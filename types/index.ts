@@ -9,22 +9,43 @@ export interface User {
   updatedAt: string;
 }
 
+// Preview Types (each project can have up to 10 previews)
+export interface Preview {
+  id: string;
+  projectId: string;
+  userId: string;
+  name: string;
+  canvasJson: Record<string, unknown> | null;
+  background: string | null;
+  thumbnailUrl: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Project Types
 export interface Project {
   id: string;
   userId: string;
   name: string;
   description: string | null;
+  // Legacy fields - kept for backward compatibility during migration
   canvasJson: Record<string, unknown> | null;
   thumbnailUrl: string | null;
   imageUrls: string[];
-  deviceType: DeviceType;
   background: string | null;
+  // Shared settings
+  deviceType: DeviceType;
+  // Previews - loaded separately
+  previews?: Preview[];
   createdAt: string;
   updatedAt: string;
 }
 
 export type DeviceType = "iphone" | "android";
+
+// Maximum previews per project
+export const MAX_PREVIEWS_PER_PROJECT = 10;
 
 // Device Frame Types
 export interface DeviceFrame {

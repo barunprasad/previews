@@ -78,7 +78,7 @@ export function TextTool({ onAddText }: TextToolProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" data-text-tool-trigger>
           <Type className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
