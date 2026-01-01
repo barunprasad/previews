@@ -3,6 +3,11 @@
 import { useCallback, useRef, useState } from "react";
 import type { Canvas } from "fabric";
 
+interface HistoryEntry {
+  canvasJson: string;
+  background: string;
+}
+
 interface CanvasHistoryOptions {
   maxHistory?: number;
 }
@@ -10,7 +15,7 @@ interface CanvasHistoryOptions {
 export function useCanvasHistory(options: CanvasHistoryOptions = {}) {
   const { maxHistory = 50 } = options;
 
-  const historyRef = useRef<string[]>([]);
+  const historyRef = useRef<HistoryEntry[]>([]);
   const historyIndexRef = useRef<number>(-1);
   const isUndoRedoRef = useRef(false);
 
@@ -18,19 +23,23 @@ export function useCanvasHistory(options: CanvasHistoryOptions = {}) {
   const [canRedo, setCanRedo] = useState(false);
 
   // Save current state to history
-  const saveState = useCallback((canvas: Canvas) => {
+  const saveState = useCallback((canvas: Canvas, background?: string) => {
     // Skip if this change is from undo/redo (don't reset flag here - undo/redo will reset it)
     if (isUndoRedoRef.current) {
       return;
     }
 
-    const json = JSON.stringify(canvas.toJSON());
+    const canvasJson = JSON.stringify(canvas.toJSON());
+    const entry: HistoryEntry = {
+      canvasJson,
+      background: background || "#0a0a0a",
+    };
 
     // Remove any redo states
     historyRef.current = historyRef.current.slice(0, historyIndexRef.current + 1);
 
     // Add new state
-    historyRef.current.push(json);
+    historyRef.current.push(entry);
 
     // Limit history size
     if (historyRef.current.length > maxHistory) {
@@ -43,15 +52,15 @@ export function useCanvasHistory(options: CanvasHistoryOptions = {}) {
     setCanRedo(false);
   }, [maxHistory]);
 
-  // Undo to previous state
-  const undo = useCallback(async (canvas: Canvas) => {
-    if (historyIndexRef.current <= 0) return;
+  // Undo to previous state - returns the background to restore
+  const undo = useCallback(async (canvas: Canvas): Promise<string | null> => {
+    if (historyIndexRef.current <= 0) return null;
 
     isUndoRedoRef.current = true;
     historyIndexRef.current--;
 
-    const json = historyRef.current[historyIndexRef.current];
-    await canvas.loadFromJSON(JSON.parse(json));
+    const entry = historyRef.current[historyIndexRef.current];
+    await canvas.loadFromJSON(JSON.parse(entry.canvasJson));
     canvas.renderAll();
 
     // Reset flag after all events have fired
@@ -59,17 +68,19 @@ export function useCanvasHistory(options: CanvasHistoryOptions = {}) {
 
     setCanUndo(historyIndexRef.current > 0);
     setCanRedo(true);
+
+    return entry.background;
   }, []);
 
-  // Redo to next state
-  const redo = useCallback(async (canvas: Canvas) => {
-    if (historyIndexRef.current >= historyRef.current.length - 1) return;
+  // Redo to next state - returns the background to restore
+  const redo = useCallback(async (canvas: Canvas): Promise<string | null> => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return null;
 
     isUndoRedoRef.current = true;
     historyIndexRef.current++;
 
-    const json = historyRef.current[historyIndexRef.current];
-    await canvas.loadFromJSON(JSON.parse(json));
+    const entry = historyRef.current[historyIndexRef.current];
+    await canvas.loadFromJSON(JSON.parse(entry.canvasJson));
     canvas.renderAll();
 
     // Reset flag after all events have fired
@@ -77,6 +88,8 @@ export function useCanvasHistory(options: CanvasHistoryOptions = {}) {
 
     setCanUndo(true);
     setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
+
+    return entry.background;
   }, []);
 
   // Clear history
@@ -88,9 +101,9 @@ export function useCanvasHistory(options: CanvasHistoryOptions = {}) {
   }, []);
 
   // Initialize history with current state
-  const initHistory = useCallback((canvas: Canvas) => {
+  const initHistory = useCallback((canvas: Canvas, background?: string) => {
     clearHistory();
-    saveState(canvas);
+    saveState(canvas, background);
   }, [clearHistory, saveState]);
 
   return {

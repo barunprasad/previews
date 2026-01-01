@@ -1,0 +1,13 @@
+<svg width="375" height="812" viewBox="0 0 375 812" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="375" height="812" rx="40" fill="#fafafa"/>
+  <rect x="20" y="60" width="335" height="50" rx="25" fill="#f4f4f5"/>
+  <rect x="40" y="75" width="20" height="20" rx="4" fill="#a1a1aa"/>
+  <rect x="20" y="130" width="335" height="80" rx="12" fill="white" stroke="#e4e4e7" stroke-width="1"/>
+  <rect x="20" y="220" width="335" height="80" rx="12" fill="white" stroke="#e4e4e7" stroke-width="1"/>
+  <rect x="20" y="310" width="335" height="80" rx="12" fill="white" stroke="#e4e4e7" stroke-width="1"/>
+  <rect x="20" y="400" width="335" height="80" rx="12" fill="white" stroke="#e4e4e7" stroke-width="1"/>
+  <rect x="20" y="490" width="335" height="80" rx="12" fill="white" stroke="#e4e4e7" stroke-width="1"/>
+  <rect x="20" y="580" width="335" height="80" rx="12" fill="white" stroke="#e4e4e7" stroke-width="1"/>
+  <rect x="20" y="670" width="335" height="80" rx="12" fill="white" stroke="#e4e4e7" stroke-width="1"/>
+  <text x="187" y="790" text-anchor="middle" fill="#71717a" font-family="system-ui" font-size="14">List View</text>
+</svg>

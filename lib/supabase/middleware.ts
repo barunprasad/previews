@@ -54,6 +54,20 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Admin route protection
+  const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
+  if (user && isAdminRoute) {
+    const adminEmails = process.env.ADMIN_EMAIL?.split(",").map((e) => e.trim()) || [];
+    const isAdmin = adminEmails.includes(user.email || "");
+
+    if (!isAdmin) {
+      // Redirect non-admin users to dashboard
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+  }
+
   // Redirect authenticated users from auth routes
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone();

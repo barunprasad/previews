@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/lib/supabase/admin";
-import { DashboardHeader } from "@/components/dashboard/dashboard-header";
+import { AdminHeader } from "@/components/admin/admin-header";
 
-export default async function DashboardLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -15,23 +15,14 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Get user profile data
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, avatar_url")
-    .eq("id", user.id)
-    .single();
-
-  const userData = {
-    email: user.email || "",
-    fullName: profile?.full_name || null,
-    avatarUrl: profile?.avatar_url || null,
-    isAdmin: isAdminEmail(user.email),
-  };
+  // Additional server-side admin check (middleware already handles this)
+  if (!isAdminEmail(user.email)) {
+    redirect("/dashboard");
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
-      <DashboardHeader user={userData} />
+      <AdminHeader />
       <main className="flex-1 px-4 py-6 md:px-6 lg:px-8">
         {children}
       </main>

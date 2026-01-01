@@ -122,8 +122,49 @@ export interface CanvasState {
 }
 
 // Template Types
-export type TemplateCategory = "minimal" | "gradient" | "showcase";
+export type TemplateCategory =
+  | "minimal"
+  | "gradient"
+  | "showcase"
+  | "device-showcase"
+  | "feature-callout"
+  | "dual-device";
 
+export type TemplateSetCategory =
+  | "app-store-starter"
+  | "feature-focused"
+  | "onboarding-flow"
+  | "minimal-clean";
+
+// App Store category for filtering templates
+export type AppStoreCategory =
+  | "ecommerce"
+  | "finance"
+  | "social-networking"
+  | "shopping"
+  | "productivity"
+  | "health-fitness"
+  | "entertainment"
+  | "education"
+  | "travel"
+  | "utilities";
+
+// Placeholder image metadata
+export interface PlaceholderImage {
+  id: string;
+  name: string;
+  url: string; // Path in /public/placeholders/
+  slot: "primary" | "secondary";
+}
+
+// Metadata for replaceable canvas objects
+export interface PlaceholderData {
+  isPlaceholder: boolean;
+  placeholderId: string;
+  replacementSlot: "primary" | "secondary";
+}
+
+// Single preview template
 export interface PreviewTemplate {
   id: string;
   name: string;
@@ -132,4 +173,26 @@ export interface PreviewTemplate {
   deviceType: DeviceType | "both";
   background: string;
   canvasJson: Record<string, unknown>;
+  placeholders?: PlaceholderImage[];
+  thumbnailUrl?: string;
+}
+
+// Template set = coordinated multi-preview design
+export interface TemplateSet {
+  id: string;
+  name: string;
+  description: string;
+  category: TemplateSetCategory;
+  appStoreCategories: AppStoreCategory[]; // For filtering by app type
+  deviceType: DeviceType | "both";
+  previewCount: number;
+  templates: PreviewTemplate[];
+  designTokens: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+    fontFamily: string;
+  };
+  thumbnailUrl?: string;
+  tags: string[];
 }

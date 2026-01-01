@@ -3,16 +3,17 @@
 import { useState, useCallback, useRef, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Upload, Loader2, ImagePlus, Trash2, Save, Download, Undo2, Redo2, MoreHorizontal, Type, Palette, Smartphone, ZoomIn, ZoomOut, Maximize, LayoutTemplate } from "lucide-react";
-import { Canvas, FabricImage, FabricText, Gradient } from "fabric";
+import { ArrowLeft, Upload, Loader2, Trash2, Save, Download, Undo2, Redo2, MoreHorizontal, ZoomIn, ZoomOut, Maximize, PanelRight, Package, ChevronDown, Smartphone } from "lucide-react";
+import { Canvas, FabricImage, FabricText, Gradient, Rect, Group, Shadow } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import { DevicePicker } from "@/components/editor/device-picker";
 import { ExportDialog } from "@/components/editor/export-dialog";
-import { BackgroundPicker } from "@/components/editor/background-picker";
-import { TextTool } from "@/components/editor/text-tool";
+import { BatchExportDialog } from "@/components/editor/batch-export-dialog";
+import { DeviceMockup, getDeviceMockup } from "@/lib/devices/frames";
+import { RightPanel } from "@/components/editor/right-panel";
 import { useCanvasHistory } from "@/hooks/use-canvas-history";
+import { useBackgroundRemoval } from "@/hooks/use-background-removal";
+import { getDevicesByType } from "@/lib/devices";
 import {
   Tooltip,
   TooltipContent,
@@ -25,23 +26,19 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
 import { PreviewStrip } from "@/components/editor/preview-strip";
-import { TemplatePicker } from "@/components/editor/template-picker";
 import { isCloudinaryConfigured } from "@/lib/cloudinary/config";
 import { uploadToCloudinary } from "@/lib/cloudinary/upload";
-import type { Project, DeviceFrame, Preview, PreviewTemplate } from "@/types";
+import type { Project, DeviceFrame, Preview, PreviewTemplate, TemplateSet } from "@/types";
 import { cn } from "@/lib/utils";
 
 // Zoom levels
 const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 1;
-const ZOOM_STEP = 0.1;
-const ZOOM_DEFAULT = 0.85; // Start at 85%
+const ZOOM_STEP = 0.05;
+const ZOOM_DEFAULT = 0.25; // Start at 25% for full-resolution canvas
 
 interface ProjectEditorProps {
   project: Project;
@@ -64,11 +61,15 @@ export function ProjectEditor({
   const isUpdatingBackgroundRef = useRef(false);
   const isLoadingPreviewRef = useRef(false);
   const markDirtyRef = useRef<() => void>(() => {});
+  const backgroundRef = useRef<string>("#0a0a0a");
 
   const [selectedDevice, setSelectedDevice] = useState(defaultDevice);
   const [hasScreenshot, setHasScreenshot] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isBatchExportOpen, setIsBatchExportOpen] = useState(false);
+  const [currentMockup, setCurrentMockup] = useState<DeviceMockup | null>(null);
+  const deviceFrameRef = useRef<Group | null>(null);
   const [isSaving, startSaving] = useTransition();
   const [isCanvasReady, setIsCanvasReady] = useState(false);
 
@@ -83,6 +84,29 @@ export function ProjectEditor({
 
   // Zoom state
   const [zoom, setZoom] = useState(ZOOM_DEFAULT);
+
+  // Right panel visibility (desktop only, always visible by default)
+  const [showRightPanel, setShowRightPanel] = useState(true);
+
+  // Get all devices for the current device type
+  const allDevices = getDevicesByType(project.deviceType as "iphone" | "android");
+
+  // Selected text style for the right panel
+  const [selectedTextStyle, setSelectedTextStyle] = useState<{
+    fontSize: number;
+    fontWeight: string;
+    fill: string;
+  } | null>(null);
+
+  // Track if an image is currently selected
+  const [hasSelectedImage, setHasSelectedImage] = useState(false);
+
+  // Background removal hook
+  const {
+    isProcessing: isRemovingBackground,
+    progress: backgroundRemovalProgress,
+    removeBackground: removeBackgroundFromImage,
+  } = useBackgroundRemoval();
 
   // Track which previews have unsaved changes
   const [dirtyPreviewIds, setDirtyPreviewIds] = useState<Set<string>>(new Set());
@@ -99,8 +123,14 @@ export function ProjectEditor({
     }
   }, [activePreview]);
 
-  // Keep ref updated for use in canvas event handlers
+  // Mark all previews as dirty (used when applying changes to all previews)
+  const markAllDirty = useCallback(() => {
+    setDirtyPreviewIds(new Set(previews.map((p) => p.id)));
+  }, [previews]);
+
+  // Keep refs updated for use in canvas event handlers
   markDirtyRef.current = markDirty;
+  backgroundRef.current = background;
 
   // History management for undo/redo
   const { saveState, undo, redo, initHistory, canUndo, canRedo } = useCanvasHistory();
@@ -130,7 +160,7 @@ export function ProjectEditor({
     const handleStateChange = () => {
       // Skip if disposed or if we're updating background (handled separately)
       if (!isDisposed && !isUpdatingBackgroundRef.current) {
-        saveState(canvas);
+        saveState(canvas, backgroundRef.current);
         markDirtyRef.current();
       }
     };
@@ -138,6 +168,35 @@ export function ProjectEditor({
     canvas.on("object:added", handleStateChange);
     canvas.on("object:removed", handleStateChange);
     canvas.on("object:modified", handleStateChange);
+
+    // Selection event handlers for text styling
+    const handleSelection = () => {
+      const activeObject = canvas.getActiveObject();
+      if (activeObject && (activeObject.type === "text" || activeObject.type === "textbox" || activeObject.type === "i-text")) {
+        const textObj = activeObject as FabricText;
+        setSelectedTextStyle({
+          fontSize: textObj.fontSize || 48,
+          fontWeight: String(textObj.fontWeight || "normal"),
+          fill: String(textObj.fill || "#ffffff"),
+        });
+        setHasSelectedImage(false);
+      } else if (activeObject && activeObject.type === "image") {
+        setSelectedTextStyle(null);
+        setHasSelectedImage(true);
+      } else {
+        setSelectedTextStyle(null);
+        setHasSelectedImage(false);
+      }
+    };
+
+    const handleSelectionCleared = () => {
+      setSelectedTextStyle(null);
+      setHasSelectedImage(false);
+    };
+
+    canvas.on("selection:created", handleSelection);
+    canvas.on("selection:updated", handleSelection);
+    canvas.on("selection:cleared", handleSelectionCleared);
 
     // Helper to apply background - inline because we can't use hooks in callback
     const applyBg = (c: Canvas, bg: string) => {
@@ -186,7 +245,16 @@ export function ProjectEditor({
         if (isDisposed) return;
 
         const objects = canvas.getObjects();
-        setHasScreenshot(objects.length > 0);
+        const hasObjects = objects.length > 0;
+        setHasScreenshot(hasObjects);
+
+        // Detect existing device frame and restore state
+        if (hasObjects) {
+          const detectedMockup = detectDeviceFrameOnCanvas(canvas);
+          if (detectedMockup) {
+            setCurrentMockup(detectedMockup);
+          }
+        }
 
         // Apply background from saved preview (gradients can't be serialized in canvas JSON)
         if (firstPreview.background) {
@@ -195,7 +263,7 @@ export function ProjectEditor({
 
         canvas.renderAll();
         // Initialize history after loading
-        initHistory(canvas);
+        initHistory(canvas, firstPreview.background || "#0a0a0a");
       }).catch((err) => {
         // Ignore errors if canvas was disposed
         if (!isDisposed) {
@@ -204,7 +272,7 @@ export function ProjectEditor({
       });
     } else {
       // Initialize history for new canvas
-      initHistory(canvas);
+      initHistory(canvas, "#0a0a0a");
     }
 
     return () => {
@@ -212,6 +280,9 @@ export function ProjectEditor({
       canvas.off("object:added", handleStateChange);
       canvas.off("object:removed", handleStateChange);
       canvas.off("object:modified", handleStateChange);
+      canvas.off("selection:created", handleSelection);
+      canvas.off("selection:updated", handleSelection);
+      canvas.off("selection:cleared", handleSelectionCleared);
       canvas.dispose();
       fabricRef.current = null;
     };
@@ -308,7 +379,7 @@ export function ProjectEditor({
 
     // Save state for undo/redo (skip initial render and preview loading)
     if (isCanvasReady && !isInitialBackgroundRef.current && !isLoadingPreviewRef.current) {
-      saveState(canvas);
+      saveState(canvas, background);
       markDirty();
     }
     isInitialBackgroundRef.current = false;
@@ -508,6 +579,498 @@ export function ProjectEditor({
     []
   );
 
+  // Handle text style changes for selected text
+  const handleTextStyleChange = useCallback(
+    (style: Partial<{ fontSize: number; fontWeight: string; fill: string }>) => {
+      if (!fabricRef.current) return;
+
+      const canvas = fabricRef.current;
+      const activeObject = canvas.getActiveObject();
+
+      if (activeObject && (activeObject.type === "text" || activeObject.type === "textbox" || activeObject.type === "i-text")) {
+        const textObj = activeObject as FabricText;
+
+        if (style.fontSize !== undefined) {
+          textObj.set("fontSize", style.fontSize);
+        }
+        if (style.fontWeight !== undefined) {
+          textObj.set("fontWeight", style.fontWeight);
+        }
+        if (style.fill !== undefined) {
+          textObj.set("fill", style.fill);
+        }
+
+        canvas.renderAll();
+        markDirty();
+
+        // Update local state to reflect changes
+        setSelectedTextStyle({
+          fontSize: textObj.fontSize || 48,
+          fontWeight: String(textObj.fontWeight || "normal"),
+          fill: String(textObj.fill || "#ffffff"),
+        });
+      }
+    },
+    [markDirty]
+  );
+
+  // Handle background removal for selected image
+  const handleRemoveBackground = useCallback(async () => {
+    if (!fabricRef.current || isRemovingBackground) return;
+
+    const canvas = fabricRef.current;
+    const activeObject = canvas.getActiveObject();
+
+    if (!activeObject || activeObject.type !== "image") {
+      toast.error("Please select an image first");
+      return;
+    }
+
+    const imageObj = activeObject as FabricImage;
+    const element = imageObj.getElement() as HTMLImageElement;
+
+    if (!element || !element.src) {
+      toast.error("Could not get image source");
+      return;
+    }
+
+    try {
+      // Get the image as data URL for processing
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = element.naturalWidth || element.width;
+      tempCanvas.height = element.naturalHeight || element.height;
+      const ctx = tempCanvas.getContext("2d");
+      if (!ctx) throw new Error("Could not get canvas context");
+
+      ctx.drawImage(element, 0, 0);
+      const dataUrl = tempCanvas.toDataURL("image/png");
+
+      // Remove background
+      const resultDataUrl = await removeBackgroundFromImage(dataUrl);
+
+      if (!resultDataUrl) {
+        toast.error("Failed to remove background");
+        return;
+      }
+
+      // Load the new image and replace the old one
+      const newImage = await FabricImage.fromURL(resultDataUrl, {
+        crossOrigin: "anonymous",
+      });
+
+      // Preserve the original transformations
+      newImage.set({
+        left: imageObj.left,
+        top: imageObj.top,
+        scaleX: imageObj.scaleX,
+        scaleY: imageObj.scaleY,
+        angle: imageObj.angle,
+        flipX: imageObj.flipX,
+        flipY: imageObj.flipY,
+        originX: imageObj.originX,
+        originY: imageObj.originY,
+      });
+
+      // Remove old image and add new one
+      canvas.remove(imageObj);
+      canvas.add(newImage);
+      canvas.setActiveObject(newImage);
+      canvas.renderAll();
+      markDirty();
+
+      toast.success("Background removed successfully");
+    } catch (error) {
+      console.error("Background removal error:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to remove background"
+      );
+    }
+  }, [isRemovingBackground, removeBackgroundFromImage, markDirty]);
+
+  // Helper function to detect device frame group on canvas and return mockup
+  const detectDeviceFrameOnCanvas = useCallback((canvas: Canvas): DeviceMockup | null => {
+    const objects = canvas.getObjects();
+
+    for (const obj of objects) {
+      if (obj.type === "group") {
+        const group = obj as Group & { deviceMockupId?: string };
+        const groupObjects = group.getObjects();
+        const hasImage = groupObjects.some((o) => o.type === "image");
+
+        if (hasImage && group.deviceMockupId) {
+          // Found a device frame group with stored mockup ID
+          deviceFrameRef.current = group;
+          return getDeviceMockup(group.deviceMockupId);
+        } else if (hasImage) {
+          // Found a device frame group but no stored ID - use default
+          deviceFrameRef.current = group;
+          return getDeviceMockup("generic");
+        }
+      }
+    }
+
+    return null;
+  }, []);
+
+  // Helper function to remove device frame from a canvas and restore the image
+  const removeDeviceFrameFromCanvas = useCallback((canvas: Canvas): boolean => {
+    // Find any group that contains an image (device frame group)
+    const objects = canvas.getObjects();
+    let frameRemoved = false;
+
+    for (const obj of objects) {
+      if (obj.type === "group") {
+        const group = obj as Group;
+        const groupObjects = group.getObjects();
+        const imageInGroup = groupObjects.find((o) => o.type === "image") as FabricImage | undefined;
+
+        if (imageInGroup) {
+          const groupCenter = group.getCenterPoint();
+          const groupAngle = group.angle || 0;
+
+          // Create a new standalone image at the correct position with rotation
+          const restoredImage = new FabricImage(imageInGroup.getElement(), {
+            left: groupCenter.x,
+            top: groupCenter.y,
+            scaleX: imageInGroup.scaleX,
+            scaleY: imageInGroup.scaleY,
+            originX: "center",
+            originY: "center",
+            angle: groupAngle, // Preserve the group's rotation
+          });
+
+          // Remove the group and add the restored image
+          canvas.remove(group);
+          canvas.add(restoredImage);
+          frameRemoved = true;
+          break; // Only process one group
+        }
+      }
+    }
+
+    return frameRemoved;
+  }, []);
+
+  // Remove device frame from current canvas and all previews
+  const removeDeviceFrame = useCallback(async () => {
+    if (!fabricRef.current) return;
+
+    const canvas = fabricRef.current;
+
+    // Remove from current canvas
+    const removed = removeDeviceFrameFromCanvas(canvas);
+
+    if (removed) {
+      // Set active object to the restored image
+      const images = canvas.getObjects().filter((obj) => obj.type === "image");
+      if (images.length > 0) {
+        canvas.setActiveObject(images[0]);
+      }
+    }
+
+    deviceFrameRef.current = null;
+
+    // Save current canvas state
+    const currentCanvasJson = canvas.toJSON();
+
+    // Remove from all other previews
+    const updatedPreviews = await Promise.all(
+      previews.map(async (preview) => {
+        if (preview.id === activePreview?.id) {
+          // Current preview - already updated
+          return {
+            ...preview,
+            canvasJson: currentCanvasJson,
+          };
+        }
+
+        // For other previews, load their canvas, remove frame, and save
+        if (preview.canvasJson) {
+          const offscreenEl = document.createElement("canvas");
+          offscreenEl.width = canvasWidth;
+          offscreenEl.height = canvasHeight;
+          const tempCanvas = new Canvas(offscreenEl, {
+            width: canvasWidth,
+            height: canvasHeight,
+          });
+
+          try {
+            await tempCanvas.loadFromJSON(preview.canvasJson);
+            const wasRemoved = removeDeviceFrameFromCanvas(tempCanvas);
+
+            if (wasRemoved) {
+              const updatedJson = tempCanvas.toJSON();
+              tempCanvas.dispose();
+              return {
+                ...preview,
+                canvasJson: updatedJson,
+              };
+            }
+          } catch (error) {
+            console.error(`Failed to remove frame from preview ${preview.id}:`, error);
+          }
+
+          tempCanvas.dispose();
+        }
+
+        return preview;
+      })
+    );
+
+    setPreviews(updatedPreviews);
+    setCurrentMockup(null);
+    canvas.renderAll();
+    markAllDirty();
+  }, [markAllDirty, removeDeviceFrameFromCanvas, previews, activePreview, canvasWidth, canvasHeight]);
+
+  // Helper function to create a device frame group for an image
+  const createDeviceFrameGroup = useCallback((image: FabricImage, mockup: DeviceMockup): Group => {
+    // Get image dimensions (without rotation affecting them)
+    const imgWidth = (image.width || 0) * (image.scaleX || 1);
+    const imgHeight = (image.height || 0) * (image.scaleY || 1);
+
+    // Get the image's rotation angle
+    const imageAngle = image.angle || 0;
+
+    // Get the center point of the image
+    const centerPoint = image.getCenterPoint();
+
+    // Scale bezel based on image size (base size is for ~400px width)
+    const scaleFactor = imgWidth / 400;
+    const bezel = {
+      top: mockup.bezel.top * scaleFactor,
+      bottom: mockup.bezel.bottom * scaleFactor,
+      left: mockup.bezel.left * scaleFactor,
+      right: mockup.bezel.right * scaleFactor,
+    };
+    const cornerRadius = mockup.cornerRadius * scaleFactor;
+
+    // Calculate frame dimensions
+    const frameWidth = imgWidth + bezel.left + bezel.right;
+    const frameHeight = imgHeight + bezel.top + bezel.bottom;
+
+    // Create device frame (bezel) - position relative to group center
+    const frame = new Rect({
+      left: -frameWidth / 2,
+      top: -frameHeight / 2,
+      width: frameWidth,
+      height: frameHeight,
+      fill: mockup.frameColor,
+      rx: cornerRadius,
+      ry: cornerRadius,
+      originX: "left",
+      originY: "top",
+      strokeWidth: 1,
+      stroke: "#333333",
+      shadow: new Shadow({
+        color: "rgba(0,0,0,0.5)",
+        blur: 25 * scaleFactor,
+        offsetX: 0,
+        offsetY: 8 * scaleFactor,
+      }),
+    });
+
+    // Clone the image for the group (positioned relative to group center, without rotation)
+    const clonedImage = new FabricImage(image.getElement(), {
+      left: -imgWidth / 2 + (bezel.left - bezel.right) / 2,
+      top: -imgHeight / 2 + (bezel.top - bezel.bottom) / 2,
+      scaleX: image.scaleX,
+      scaleY: image.scaleY,
+      originX: "left",
+      originY: "top",
+      angle: 0, // Reset angle - the group will handle rotation
+    });
+
+    // Build group objects array
+    const groupObjects: (Rect | FabricImage)[] = [frame, clonedImage];
+
+    // Add Dynamic Island if applicable
+    if (mockup.hasDynamicIsland) {
+      const islandWidth = 95 * scaleFactor;
+      const islandHeight = 28 * scaleFactor;
+
+      const island = new Rect({
+        left: -islandWidth / 2 + (bezel.left - bezel.right) / 2,
+        top: -imgHeight / 2 + (8 * scaleFactor) + (bezel.top - bezel.bottom) / 2,
+        width: islandWidth,
+        height: islandHeight,
+        fill: "#000000",
+        rx: islandHeight / 2,
+        ry: islandHeight / 2,
+        originX: "left",
+        originY: "top",
+      });
+      groupObjects.push(island);
+    }
+
+    // Add notch if applicable
+    if (mockup.hasNotch) {
+      const notchWidth = 150 * scaleFactor;
+      const notchHeight = 30 * scaleFactor;
+
+      const notch = new Rect({
+        left: -notchWidth / 2 + (bezel.left - bezel.right) / 2,
+        top: -imgHeight / 2 + (bezel.top - bezel.bottom) / 2,
+        width: notchWidth,
+        height: notchHeight,
+        fill: "#000000",
+        rx: 0,
+        ry: 0,
+        originX: "left",
+        originY: "top",
+      });
+      groupObjects.push(notch);
+    }
+
+    // Create the group with the image's rotation
+    const deviceGroup = new Group(groupObjects, {
+      left: centerPoint.x,
+      top: centerPoint.y,
+      originX: "center",
+      originY: "center",
+      angle: imageAngle, // Apply the image's rotation to the entire group
+    });
+
+    // Store mockup ID for later detection (will be serialized with toJSON)
+    (deviceGroup as Group & { deviceMockupId?: string }).deviceMockupId = mockup.id;
+
+    return deviceGroup;
+  }, []);
+
+  // Apply device mockup to the current canvas
+  const applyDeviceMockupToCanvas = useCallback((canvas: Canvas, mockup: DeviceMockup): Group | null => {
+    const objects = canvas.getObjects();
+    let image: FabricImage | null = null;
+    let existingGroup: Group | null = null;
+
+    // First, check for existing device frame group (contains an image)
+    for (const obj of objects) {
+      if (obj.type === "group") {
+        const group = obj as Group;
+        const groupObjects = group.getObjects();
+        const imageInGroup = groupObjects.find((o) => o.type === "image") as FabricImage | undefined;
+
+        if (imageInGroup) {
+          existingGroup = group;
+          // Extract image from group - get its position and rotation
+          const groupCenter = group.getCenterPoint();
+          const groupAngle = group.angle || 0;
+
+          // Create a standalone image from the group's image
+          image = new FabricImage(imageInGroup.getElement(), {
+            left: groupCenter.x,
+            top: groupCenter.y,
+            scaleX: imageInGroup.scaleX,
+            scaleY: imageInGroup.scaleY,
+            originX: "center",
+            originY: "center",
+            angle: groupAngle,
+          });
+          break;
+        }
+      } else if (obj.type === "image") {
+        image = obj as FabricImage;
+        break;
+      }
+    }
+
+    if (!image) {
+      return null;
+    }
+
+    // Remove existing group if any
+    if (existingGroup) {
+      canvas.remove(existingGroup);
+    }
+
+    // Force coordinate recalculation
+    canvas.renderAll();
+    image.setCoords();
+
+    // Create the device frame group
+    const deviceGroup = createDeviceFrameGroup(image, mockup);
+
+    // Remove original standalone image (if not from group) and add the group
+    if (!existingGroup) {
+      canvas.remove(image);
+    }
+    canvas.add(deviceGroup);
+
+    return deviceGroup;
+  }, [createDeviceFrameGroup]);
+
+  // Apply device mockup to all previews
+  const applyDeviceMockup = useCallback(async (mockup: DeviceMockup) => {
+    if (!fabricRef.current) return;
+
+    const canvas = fabricRef.current;
+
+    // Apply to current canvas (handles existing frame removal internally)
+    const currentGroup = applyDeviceMockupToCanvas(canvas, mockup);
+
+    if (!currentGroup) {
+      toast.error("Add a screenshot first to add a device frame");
+      return;
+    }
+
+    canvas.setActiveObject(currentGroup);
+    deviceFrameRef.current = currentGroup;
+
+    // Save current canvas state
+    const currentCanvasJson = canvas.toJSON();
+
+    // Apply to all other previews
+    const updatedPreviews = await Promise.all(
+      previews.map(async (preview) => {
+        if (preview.id === activePreview?.id) {
+          // Current preview - already updated
+          return {
+            ...preview,
+            canvasJson: currentCanvasJson,
+          };
+        }
+
+        // For other previews, load their canvas, apply frame, and save
+        if (preview.canvasJson) {
+          // Create an offscreen canvas element
+          const offscreenEl = document.createElement("canvas");
+          offscreenEl.width = canvasWidth;
+          offscreenEl.height = canvasHeight;
+          const tempCanvas = new Canvas(offscreenEl, {
+            width: canvasWidth,
+            height: canvasHeight,
+          });
+
+          try {
+            await tempCanvas.loadFromJSON(preview.canvasJson);
+            const group = applyDeviceMockupToCanvas(tempCanvas, mockup);
+
+            if (group) {
+              const updatedJson = tempCanvas.toJSON();
+              tempCanvas.dispose();
+              return {
+                ...preview,
+                canvasJson: updatedJson,
+              };
+            }
+          } catch (error) {
+            console.error(`Failed to apply frame to preview ${preview.id}:`, error);
+          }
+
+          tempCanvas.dispose();
+        }
+
+        return preview;
+      })
+    );
+
+    setPreviews(updatedPreviews);
+    setCurrentMockup(mockup);
+    canvas.renderAll();
+    markAllDirty();
+    toast.success(`${mockup.name} frame applied to all previews`);
+  }, [markAllDirty, applyDeviceMockupToCanvas, previews, activePreview, canvasWidth, canvasHeight]);
+
   // Apply template to canvas
   const handleApplyTemplate = useCallback(
     async (template: PreviewTemplate) => {
@@ -533,36 +1096,129 @@ export function ProjectEditor({
 
       canvas.renderAll();
       markDirty();
-      initHistory(canvas);
+      initHistory(canvas, template.background);
 
       toast.success(`Applied "${template.name}" template`);
     },
     [applyBackground, markDirty, initHistory]
   );
 
-  // Helper to restore background state from canvas after undo/redo
-  const restoreBackgroundState = useCallback((canvas: Canvas) => {
-    // For solid colors, restore from canvas.backgroundColor
-    // For gradients, the visual is restored but we can't easily reconstruct the CSS string
-    if (canvas.backgroundColor && typeof canvas.backgroundColor === "string") {
-      setBackground(canvas.backgroundColor);
-    }
-    // Note: Gradients are restored visually by loadFromJSON, but the picker won't show the exact gradient
-  }, []);
+  // Apply template set - creates multiple previews with coordinated templates
+  const handleApplyTemplateSet = useCallback(
+    async (templateSet: TemplateSet) => {
+      if (!fabricRef.current) return;
+
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast.error("You must be logged in");
+        return;
+      }
+
+      // Create previews for each template in the set
+      const newPreviews: Preview[] = [];
+
+      for (let i = 0; i < templateSet.templates.length; i++) {
+        const template = templateSet.templates[i];
+
+        // Create preview in database
+        const { data, error } = await supabase
+          .from("previews")
+          .insert({
+            project_id: project.id,
+            user_id: user.id,
+            name: template.name,
+            sort_order: i,
+            canvas_json: template.canvasJson,
+            background: template.background,
+          })
+          .select()
+          .single();
+
+        if (error) {
+          toast.error(`Failed to create preview: ${error.message}`);
+          return;
+        }
+
+        newPreviews.push({
+          id: data.id,
+          projectId: data.project_id,
+          userId: data.user_id,
+          name: data.name,
+          canvasJson: data.canvas_json,
+          background: data.background,
+          thumbnailUrl: data.thumbnail_url,
+          sortOrder: data.sort_order,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+        });
+      }
+
+      // Delete existing previews first (to replace)
+      if (previews.length > 0) {
+        await Promise.all(
+          previews.map((p) =>
+            supabase.from("previews").delete().eq("id", p.id)
+          )
+        );
+      }
+
+      // Update local state with new previews
+      setPreviews(newPreviews);
+
+      // Load the first preview
+      if (newPreviews.length > 0) {
+        const firstPreview = newPreviews[0];
+        setActivePreview(firstPreview);
+
+        const canvas = fabricRef.current;
+        canvas.clear();
+
+        if (firstPreview.canvasJson) {
+          await canvas.loadFromJSON(firstPreview.canvasJson);
+        }
+
+        const newBg = firstPreview.background || "#0a0a0a";
+        applyBackground(canvas, newBg);
+        setBackground(newBg);
+
+        const objects = canvas.getObjects();
+        setHasScreenshot(objects.length > 0);
+
+        canvas.renderAll();
+        initHistory(canvas, newBg);
+      }
+
+      // Clear dirty state since we just created fresh
+      setDirtyPreviewIds(new Set());
+
+      toast.success(`Created ${templateSet.previewCount} previews from "${templateSet.name}"`);
+    },
+    [project.id, previews, applyBackground, initHistory]
+  );
 
   // Undo handler
   const handleUndo = useCallback(async () => {
     if (!fabricRef.current || !canUndo) return;
-    await undo(fabricRef.current);
-    restoreBackgroundState(fabricRef.current);
-  }, [undo, canUndo, restoreBackgroundState]);
+    const restoredBackground = await undo(fabricRef.current);
+    if (restoredBackground) {
+      // Apply background visually and update state
+      applyBackground(fabricRef.current, restoredBackground);
+      setBackground(restoredBackground);
+    }
+  }, [undo, canUndo, applyBackground]);
 
   // Redo handler
   const handleRedo = useCallback(async () => {
     if (!fabricRef.current || !canRedo) return;
-    await redo(fabricRef.current);
-    restoreBackgroundState(fabricRef.current);
-  }, [redo, canRedo, restoreBackgroundState]);
+    const restoredBackground = await redo(fabricRef.current);
+    if (restoredBackground) {
+      // Apply background visually and update state
+      applyBackground(fabricRef.current, restoredBackground);
+      setBackground(restoredBackground);
+    }
+  }, [redo, canRedo, applyBackground]);
 
   // Helper to convert base64 data URL to Blob
   const dataUrlToBlob = (dataUrl: string): Blob => {
@@ -725,14 +1381,24 @@ export function ProjectEditor({
       setBackground(newBg);
 
       const objects = canvas.getObjects();
-      setHasScreenshot(objects.length > 0);
+      const hasObjects = objects.length > 0;
+      setHasScreenshot(hasObjects);
+
+      // Detect existing device frame and restore state
+      if (hasObjects) {
+        const detectedMockup = detectDeviceFrameOnCanvas(canvas);
+        setCurrentMockup(detectedMockup);
+      } else {
+        setCurrentMockup(null);
+        deviceFrameRef.current = null;
+      }
 
       canvas.renderAll();
-      initHistory(canvas);
+      initHistory(canvas, newBg);
 
       isLoadingPreviewRef.current = false;
     },
-    [activePreview, background, initHistory, applyBackground]
+    [activePreview, background, initHistory, applyBackground, detectDeviceFrameOnCanvas]
   );
 
   // Handle new preview created
@@ -836,12 +1502,10 @@ export function ProjectEditor({
     <TooltipProvider delayDuration={300}>
       {/* Editor container - covers entire SidebarInset area */}
       <div className="absolute inset-0 z-50 flex flex-col bg-background">
-        {/* Editor header with all controls */}
+        {/* Editor header - simplified with right panel toggle */}
         <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-2 md:px-4">
-          {/* Left side - consistent across breakpoints */}
+          {/* Left side - back + project name */}
           <div className="flex items-center gap-1 md:gap-2">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mx-1 md:mx-2 h-4" />
             <Button variant="ghost" size="icon" asChild>
               <Link href="/dashboard/projects">
                 <ArrowLeft className="h-4 w-4" />
@@ -849,7 +1513,7 @@ export function ProjectEditor({
               </Link>
             </Button>
             <div className="ml-1 md:ml-2">
-              <h1 className="text-sm font-semibold truncate max-w-[100px] sm:max-w-[200px] md:max-w-none">{project.name}</h1>
+              <h1 className="text-sm font-semibold truncate max-w-[120px] sm:max-w-[200px] md:max-w-none">{project.name}</h1>
             </div>
           </div>
 
@@ -862,60 +1526,9 @@ export function ProjectEditor({
             className="hidden"
           />
 
-          {/* Desktop toolbar - hidden on mobile, scrollable */}
-          <div className="hidden md:flex items-center overflow-x-auto">
-            <div className="flex shrink-0 items-center gap-1">
-            <DevicePicker
-              deviceType={project.deviceType as "iphone" | "android"}
-              selectedDevice={selectedDevice}
-              onDeviceChange={handleDeviceChange}
-            />
-
-            <BackgroundPicker value={background} onChange={setBackground} />
-
-            <TemplatePicker
-              onSelectTemplate={handleApplyTemplate}
-              currentDeviceType={project.deviceType as "iphone" | "android"}
-            />
-
-            <Separator orientation="vertical" className="mx-2 h-6" />
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <ImagePlus className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Upload screenshot</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <TextTool onAddText={handleAddText} />
-              </TooltipTrigger>
-              <TooltipContent>Add text</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleClear}
-                  disabled={!hasScreenshot}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Clear</TooltipContent>
-            </Tooltip>
-
-            <Separator orientation="vertical" className="mx-1 h-6" />
-
+          {/* Right side - controls */}
+          <div className="flex items-center gap-1">
+            {/* Undo/Redo */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -927,7 +1540,7 @@ export function ProjectEditor({
                   <Undo2 className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Undo</TooltipContent>
+              <TooltipContent>Undo (⌘Z)</TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -941,59 +1554,77 @@ export function ProjectEditor({
                   <Redo2 className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Redo</TooltipContent>
+              <TooltipContent>Redo (⌘⇧Z)</TooltipContent>
             </Tooltip>
+
+            <Separator orientation="vertical" className="mx-1 h-6 hidden sm:block" />
+
+            {/* Zoom controls - hidden on small mobile */}
+            <div className="hidden sm:flex items-center">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleZoomOut}
+                    disabled={zoom <= ZOOM_MIN}
+                  >
+                    <ZoomOut className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Zoom out</TooltipContent>
+              </Tooltip>
+
+              <span className="w-12 text-center text-xs text-muted-foreground">
+                {Math.round(zoom * 100)}%
+              </span>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleZoomIn}
+                    disabled={zoom >= ZOOM_MAX}
+                  >
+                    <ZoomIn className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Zoom in</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleFitToScreen}
+                  >
+                    <Maximize className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Fit to screen</TooltipContent>
+              </Tooltip>
+            </div>
 
             <Separator orientation="vertical" className="mx-1 h-6" />
 
-            {/* Zoom controls */}
+            {/* Clear canvas */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={handleZoomOut}
-                  disabled={zoom <= ZOOM_MIN}
+                  onClick={handleClear}
+                  disabled={!hasScreenshot}
                 >
-                  <ZoomOut className="h-4 w-4" />
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Zoom out</TooltipContent>
+              <TooltipContent>Clear canvas</TooltipContent>
             </Tooltip>
 
-            <span className="w-12 text-center text-xs text-muted-foreground">
-              {Math.round(zoom * 100)}%
-            </span>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleZoomIn}
-                  disabled={zoom >= ZOOM_MAX}
-                >
-                  <ZoomIn className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Zoom in</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleFitToScreen}
-                >
-                  <Maximize className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Fit to screen</TooltipContent>
-            </Tooltip>
-
-            <Separator orientation="vertical" className="mx-1 h-6" />
-
+            {/* Save */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -1016,226 +1647,186 @@ export function ProjectEditor({
               <TooltipContent>
                 {dirtyPreviewIds.size > 0
                   ? `Save (${dirtyPreviewIds.size} unsaved)`
-                  : "Save"}
+                  : "Save (⌘S)"}
               </TooltipContent>
             </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
+            {/* Export dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="sm"
+                  disabled={!hasScreenshot && previews.length === 0}
+                  className="gap-1 px-2"
+                >
+                  <Download className="h-4 w-4" />
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
                   onClick={() => setIsExportOpen(true)}
                   disabled={!hasScreenshot}
                 >
                   <Download className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Export</TooltipContent>
-            </Tooltip>
-            </div>
-          </div>
-
-          {/* Mobile toolbar - visible only on mobile */}
-          <div className="flex md:hidden items-center gap-1">
-            {/* Hidden TextTool for mobile triggering */}
-            <div className="hidden">
-              <TextTool onAddText={handleAddText} />
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreHorizontal className="h-4 w-4" />
-                  <span className="sr-only">Tools menu</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
-                  <ImagePlus className="h-4 w-4" />
-                  Upload Screenshot
+                  Export Current Preview
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    // Trigger text tool - we'll need to handle this differently
-                    const textToolButton = document.querySelector('[data-text-tool-trigger]') as HTMLButtonElement;
-                    textToolButton?.click();
-                  }}
-                >
-                  <Type className="h-4 w-4" />
-                  Add Text
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleClear}
-                  disabled={!hasScreenshot}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Clear Canvas
-                </DropdownMenuItem>
-
                 <DropdownMenuSeparator />
-
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <Smartphone className="h-4 w-4" />
-                    Device: {selectedDevice.name}
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    {devices.map((device) => (
-                      <DropdownMenuItem
-                        key={device.id}
-                        onClick={() => handleDeviceChange(device)}
-                      >
-                        {device.name}
-                        {device.id === selectedDevice.id && " (current)"}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-
-                <DropdownMenuSeparator />
-
                 <DropdownMenuItem
-                  onClick={handleUndo}
-                  disabled={!canUndo}
+                  onClick={() => setIsBatchExportOpen(true)}
+                  disabled={previews.length === 0}
                 >
-                  <Undo2 className="h-4 w-4" />
-                  Undo
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleRedo}
-                  disabled={!canRedo}
-                >
-                  <Redo2 className="h-4 w-4" />
-                  Redo
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator />
-
-                <div className="flex items-center justify-between px-2 py-1.5">
-                  <span className="text-sm text-muted-foreground">Zoom</span>
-                  <span className="text-sm font-medium">{Math.round(zoom * 100)}%</span>
-                </div>
-                <DropdownMenuItem
-                  onClick={handleZoomIn}
-                  disabled={zoom >= ZOOM_MAX}
-                >
-                  <ZoomIn className="h-4 w-4" />
-                  Zoom In
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleZoomOut}
-                  disabled={zoom <= ZOOM_MIN}
-                >
-                  <ZoomOut className="h-4 w-4" />
-                  Zoom Out
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleFitToScreen}>
-                  <Maximize className="h-4 w-4" />
-                  Fit to Screen
+                  <Package className="h-4 w-4" />
+                  Batch Export All ({previews.length})
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <BackgroundPicker value={background} onChange={setBackground} />
+            <Separator orientation="vertical" className="mx-1 h-6 hidden lg:block" />
 
-            <TemplatePicker
-              onSelectTemplate={handleApplyTemplate}
-              currentDeviceType={project.deviceType as "iphone" | "android"}
-            />
+            {/* Mobile menu for zoom and other options */}
+            <div className="sm:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">More options</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <div className="flex items-center justify-between px-2 py-1.5">
+                    <span className="text-sm text-muted-foreground">Zoom</span>
+                    <span className="text-sm font-medium">{Math.round(zoom * 100)}%</span>
+                  </div>
+                  <DropdownMenuItem onClick={handleZoomIn} disabled={zoom >= ZOOM_MAX}>
+                    <ZoomIn className="h-4 w-4" />
+                    Zoom In
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleZoomOut} disabled={zoom <= ZOOM_MIN}>
+                    <ZoomOut className="h-4 w-4" />
+                    Zoom Out
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleFitToScreen}>
+                    <Maximize className="h-4 w-4" />
+                    Fit to Screen
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleSave}
-              disabled={isSaving}
-              className="relative"
-            >
-              {isSaving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              {dirtyPreviewIds.size > 0 && !isSaving && (
-                <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-orange-500" />
-              )}
-            </Button>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsExportOpen(true)}
-              disabled={!hasScreenshot}
-            >
-              <Download className="h-4 w-4" />
-            </Button>
+            {/* Right panel toggle - desktop only */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={showRightPanel ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() => setShowRightPanel(!showRightPanel)}
+                  className="hidden lg:flex"
+                >
+                  <PanelRight className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {showRightPanel ? "Hide panel" : "Show panel"}
+              </TooltipContent>
+            </Tooltip>
           </div>
         </header>
 
-        {/* Canvas area */}
-        <div
-          ref={containerRef}
-          className={cn(
-            "relative flex flex-1 items-center justify-center overflow-auto bg-muted/50 p-4",
-            isDragging && "ring-2 ring-inset ring-primary"
-          )}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          {/* Canvas wrapper with zoom transform */}
+        {/* Main content area with canvas and right panel */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Canvas area */}
           <div
-            className="relative shrink-0 overflow-hidden rounded-2xl shadow-2xl transition-transform duration-150"
-            style={{
-              width: canvasWidth * zoom,
-              height: canvasHeight * zoom,
-            }}
+            ref={containerRef}
+            className={cn(
+              "relative flex flex-1 items-center justify-center overflow-auto bg-muted/50 p-4",
+              isDragging && "ring-2 ring-inset ring-primary"
+            )}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
           >
+            {/* Canvas wrapper with zoom transform */}
             <div
+              className="relative shrink-0 overflow-hidden rounded-2xl shadow-2xl transition-transform duration-150"
               style={{
-                transform: `scale(${zoom})`,
-                transformOrigin: "top left",
-                width: canvasWidth,
-                height: canvasHeight,
+                width: canvasWidth * zoom,
+                height: canvasHeight * zoom,
               }}
             >
-            <canvas ref={canvasRef} />
-
-            {/* Empty state overlay */}
-            {!hasScreenshot && isCanvasReady && (
               <div
-                className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-4 bg-neutral-900/90 transition-colors hover:bg-neutral-900/80"
-                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  transform: `scale(${zoom})`,
+                  transformOrigin: "top left",
+                  width: canvasWidth,
+                  height: canvasHeight,
+                }}
               >
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-800">
-                  <Upload className="h-10 w-10 text-neutral-400" />
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-medium text-white">Drop screenshot here</p>
-                  <p className="text-sm text-neutral-400">
-                    or click to browse
-                  </p>
-                </div>
-              </div>
-            )}
+                <canvas ref={canvasRef} />
 
-            {/* Drag overlay */}
-            {isDragging && (
-              <div className="absolute inset-0 flex items-center justify-center bg-primary/20 backdrop-blur-sm">
-                <div className="flex flex-col items-center gap-2 text-primary">
-                  <Upload className="h-12 w-12" />
-                  <p className="text-lg font-semibold">Drop to add screenshot</p>
-                </div>
-              </div>
-            )}
+                {/* Empty state overlay */}
+                {!hasScreenshot && isCanvasReady && (
+                  <div
+                    className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-4 bg-neutral-900/90 transition-colors hover:bg-neutral-900/80"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-800">
+                      <Upload className="h-10 w-10 text-neutral-400" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-medium text-white">Drop screenshot here</p>
+                      <p className="text-sm text-neutral-400">
+                        or click to browse
+                      </p>
+                    </div>
+                  </div>
+                )}
 
-            {/* Loading state */}
-            {!isCanvasReady && (
-              <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
-                <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+                {/* Drag overlay */}
+                {isDragging && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-primary/20 backdrop-blur-sm">
+                    <div className="flex flex-col items-center gap-2 text-primary">
+                      <Upload className="h-12 w-12" />
+                      <p className="text-lg font-semibold">Drop to add screenshot</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Loading state */}
+                {!isCanvasReady && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
+                    <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+                  </div>
+                )}
               </div>
-            )}
             </div>
           </div>
+
+          {/* Right Panel - desktop only */}
+          {showRightPanel && (
+            <RightPanel
+              deviceType={project.deviceType as "iphone" | "android"}
+              selectedDevice={selectedDevice}
+              devices={allDevices}
+              onDeviceChange={handleDeviceChange}
+              background={background}
+              onBackgroundChange={setBackground}
+              onAddText={handleAddText}
+              selectedTextStyle={selectedTextStyle}
+              onTextStyleChange={handleTextStyleChange}
+              onUploadScreenshot={() => fileInputRef.current?.click()}
+              hasSelectedImage={hasSelectedImage}
+              onRemoveBackground={handleRemoveBackground}
+              isRemovingBackground={isRemovingBackground}
+              backgroundRemovalProgress={backgroundRemovalProgress}
+              onApplyTemplate={handleApplyTemplate}
+              currentDeviceMockup={currentMockup}
+              onApplyDeviceFrame={applyDeviceMockup}
+              onRemoveDeviceFrame={removeDeviceFrame}
+              hasScreenshot={hasScreenshot}
+            />
+          )}
         </div>
 
         {/* Preview strip at bottom */}
@@ -1254,6 +1845,17 @@ export function ProjectEditor({
           onOpenChange={setIsExportOpen}
           device={selectedDevice}
           onExport={handleExport}
+        />
+
+        {/* Batch export dialog */}
+        <BatchExportDialog
+          open={isBatchExportOpen}
+          onOpenChange={setIsBatchExportOpen}
+          projectName={project.name}
+          previews={previews}
+          canvasWidth={canvasWidth}
+          canvasHeight={canvasHeight}
+          deviceType={project.deviceType as "iphone" | "android"}
         />
       </div>
     </TooltipProvider>

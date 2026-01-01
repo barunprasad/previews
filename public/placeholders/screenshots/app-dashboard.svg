@@ -1,0 +1,14 @@
+<svg width="375" height="812" viewBox="0 0 375 812" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="375" height="812" rx="40" fill="#0f172a"/>
+  <rect x="20" y="60" width="200" height="30" rx="6" fill="#334155"/>
+  <rect x="20" y="110" width="335" height="180" rx="16" fill="#1e293b"/>
+  <path d="M40 250 L100 180 L160 220 L220 160 L280 200 L340 140" stroke="#6366f1" stroke-width="3" fill="none"/>
+  <rect x="20" y="310" width="105" height="90" rx="12" fill="#1e293b"/>
+  <rect x="135" y="310" width="105" height="90" rx="12" fill="#1e293b"/>
+  <rect x="250" y="310" width="105" height="90" rx="12" fill="#1e293b"/>
+  <rect x="20" y="420" width="335" height="100" rx="12" fill="#1e293b"/>
+  <rect x="20" y="540" width="335" height="60" rx="8" fill="#1e293b"/>
+  <rect x="20" y="620" width="335" height="60" rx="8" fill="#1e293b"/>
+  <rect x="20" y="700" width="335" height="60" rx="8" fill="#1e293b"/>
+  <text x="187" y="770" text-anchor="middle" fill="#64748b" font-family="system-ui" font-size="14">Dashboard View</text>
+</svg>

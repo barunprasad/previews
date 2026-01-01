@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, LayoutTemplate } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { ProjectsGrid, ProjectsGridSkeleton } from "@/components/dashboard/projects-grid";
@@ -74,19 +74,27 @@ async function ProjectsList() {
 export default function ProjectsPage() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
           <p className="text-muted-foreground">
             Manage your app store preview projects
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/projects/new">
-            <Plus className="mr-2 h-4 w-4" />
-            New Project
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/projects/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Create Blank
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/dashboard/templates">
+              <LayoutTemplate className="mr-2 h-4 w-4" />
+              Use Template
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <Suspense fallback={<ProjectsGridSkeleton />}>
