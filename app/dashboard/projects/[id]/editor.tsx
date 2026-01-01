@@ -33,6 +33,7 @@ import { isCloudinaryConfigured } from "@/lib/cloudinary/config";
 import { uploadToCloudinary } from "@/lib/cloudinary/upload";
 import type { Project, DeviceFrame, Preview, PreviewTemplate, TemplateSet } from "@/types";
 import { cn } from "@/lib/utils";
+import { findReplaceableObjects, replaceScreenshot, type FabricImageWithData } from "@/lib/templates/replacement";
 
 // Zoom levels
 const ZOOM_MIN = 0.1;
@@ -419,16 +420,174 @@ export function ProjectEditor({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [canUndo, canRedo, undo, redo]);
 
-  // Add screenshot to canvas
+  // Add screenshot to canvas - replaces placeholder or existing image if present
   const addScreenshot = useCallback(
     async (url: string) => {
       if (!fabricRef.current) return;
 
       const canvas = fabricRef.current;
 
-      // Clear existing objects (background is preserved as canvas.backgroundColor)
-      canvas.getObjects().forEach((obj) => canvas.remove(obj));
+      // Check for placeholder images first (from templates)
+      const placeholders = findReplaceableObjects(canvas);
 
+      if (placeholders.length > 0) {
+        // Replace the first placeholder (primary slot)
+        try {
+          await replaceScreenshot(canvas, placeholders[0], url, FabricImage);
+          setHasScreenshot(true);
+          toast.success("Screenshot replaced");
+          return;
+        } catch (error) {
+          console.error("Error replacing placeholder:", error);
+          toast.error("Failed to replace screenshot");
+          return;
+        }
+      }
+
+      // Check for device frame group (any group containing an image)
+      const allObjects = canvas.getObjects();
+      for (const obj of allObjects) {
+        if (obj.type === "group") {
+          const group = obj as Group & { data?: { deviceMockupId?: string } };
+          const groupData = group.data;
+          const groupObjects = group.getObjects();
+          const imageInGroup = groupObjects.find((o) => o.type === "image") as FabricImage | undefined;
+
+          if (imageInGroup) {
+            try {
+              // Get the group's current transform (position, angle, scale)
+              const groupCenter = group.getCenterPoint();
+              const groupAngle = group.angle || 0;
+              const groupScaleX = group.scaleX || 1;
+              const groupScaleY = group.scaleY || 1;
+
+              // Calculate displayed size of the image inside the group
+              // Must account for group's scale as well
+              const displayWidth = (imageInGroup.width || 0) * (imageInGroup.scaleX || 1) * groupScaleX;
+              const displayHeight = (imageInGroup.height || 0) * (imageInGroup.scaleY || 1) * groupScaleY;
+
+              // Load new image
+              const newImg = await FabricImage.fromURL(url, {
+                crossOrigin: "anonymous",
+              });
+
+              // Calculate scale to match the displayed size
+              const newImgWidth = newImg.width || 1;
+              const newImgHeight = newImg.height || 1;
+              const scaleToFitWidth = displayWidth / newImgWidth;
+              const scaleToFitHeight = displayHeight / newImgHeight;
+              const scale = Math.min(scaleToFitWidth, scaleToFitHeight);
+
+              // Create standalone image at group's position with correct scale
+              const standaloneImg = new FabricImage(newImg.getElement(), {
+                left: groupCenter.x,
+                top: groupCenter.y,
+                scaleX: scale,
+                scaleY: scale,
+                angle: groupAngle,
+                originX: "center",
+                originY: "center",
+              });
+
+              // Get mockup from group data, current state, or fallback to generic
+              const mockupId = groupData?.deviceMockupId;
+              const mockup = mockupId
+                ? getDeviceMockup(mockupId)
+                : (currentMockup || getDeviceMockup("generic"));
+
+              // Remove old group
+              canvas.remove(group);
+
+              // Add standalone image and render to initialize it
+              canvas.add(standaloneImg);
+              canvas.renderAll();
+              standaloneImg.setCoords();
+
+              // Re-apply the device frame using existing logic
+              const newGroup = createDeviceFrameGroup(standaloneImg, mockup);
+
+              if (!newGroup) {
+                // Fallback: just keep the standalone image
+                console.error("Failed to create device frame group");
+                canvas.setActiveObject(standaloneImg);
+                deviceFrameRef.current = null;
+                setCurrentMockup(null);
+              } else {
+                // Remove standalone and add group
+                canvas.remove(standaloneImg);
+                canvas.add(newGroup);
+                canvas.setActiveObject(newGroup);
+
+                // Update refs
+                deviceFrameRef.current = newGroup;
+                setCurrentMockup(mockup);
+              }
+
+              canvas.renderAll();
+              setHasScreenshot(true);
+              toast.success("Screenshot replaced");
+              return;
+            } catch (error) {
+              console.error("Error replacing image in device frame:", error);
+              toast.error("Failed to replace screenshot");
+              return;
+            }
+          }
+        }
+      }
+
+      // Check for any existing standalone image to replace (non-placeholder)
+      const existingImages = canvas.getObjects().filter((obj) => obj.type === "image") as FabricImage[];
+
+      if (existingImages.length > 0) {
+        // Replace the first existing image, scaling to match its displayed size
+        const targetImage = existingImages[0];
+
+        // Calculate the displayed size of the existing image
+        const displayWidth = (targetImage.width || 0) * (targetImage.scaleX || 1);
+        const displayHeight = (targetImage.height || 0) * (targetImage.scaleY || 1);
+
+        try {
+          const newImg = await FabricImage.fromURL(url, {
+            crossOrigin: "anonymous",
+          });
+
+          // Calculate scale to match the existing image's displayed size
+          const newImgWidth = newImg.width || 1;
+          const newImgHeight = newImg.height || 1;
+          const scaleToFitWidth = displayWidth / newImgWidth;
+          const scaleToFitHeight = displayHeight / newImgHeight;
+          const scale = Math.min(scaleToFitWidth, scaleToFitHeight);
+
+          // Apply transform to match existing image size and position
+          newImg.set({
+            left: targetImage.left,
+            top: targetImage.top,
+            scaleX: scale,
+            scaleY: scale,
+            angle: targetImage.angle,
+            originX: targetImage.originX,
+            originY: targetImage.originY,
+            shadow: targetImage.shadow, // Preserve shadow
+          });
+
+          // Remove old image and add new one
+          canvas.remove(targetImage);
+          canvas.add(newImg);
+          canvas.setActiveObject(newImg);
+          canvas.renderAll();
+          setHasScreenshot(true);
+
+          toast.success("Screenshot replaced");
+          return;
+        } catch (error) {
+          console.error("Error replacing image:", error);
+          toast.error("Failed to replace screenshot");
+          return;
+        }
+      }
+
+      // No existing images - add new image (fresh canvas)
       try {
         const img = await FabricImage.fromURL(url, {
           crossOrigin: "anonymous",
@@ -693,14 +852,15 @@ export function ProjectEditor({
 
     for (const obj of objects) {
       if (obj.type === "group") {
-        const group = obj as Group & { deviceMockupId?: string };
+        const group = obj as Group & { data?: { deviceMockupId?: string } };
+        const groupData = group.data;
         const groupObjects = group.getObjects();
         const hasImage = groupObjects.some((o) => o.type === "image");
 
-        if (hasImage && group.deviceMockupId) {
+        if (hasImage && groupData?.deviceMockupId) {
           // Found a device frame group with stored mockup ID
           deviceFrameRef.current = group;
-          return getDeviceMockup(group.deviceMockupId);
+          return getDeviceMockup(groupData.deviceMockupId);
         } else if (hasImage) {
           // Found a device frame group but no stored ID - use default
           deviceFrameRef.current = group;
@@ -931,8 +1091,9 @@ export function ProjectEditor({
       angle: imageAngle, // Apply the image's rotation to the entire group
     });
 
-    // Store mockup ID for later detection (will be serialized with toJSON)
-    (deviceGroup as Group & { deviceMockupId?: string }).deviceMockupId = mockup.id;
+    // Store mockup ID in data property so it survives serialization
+    // Using set() to ensure it's properly stored
+    deviceGroup.set("data", { deviceMockupId: mockup.id });
 
     return deviceGroup;
   }, []);

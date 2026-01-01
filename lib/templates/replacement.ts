@@ -39,7 +39,8 @@ export function getPlaceholderSlot(
 
 /**
  * Replace a placeholder screenshot with a new image
- * Preserves position, scale, and angle
+ * Scales new image to match the placeholder's displayed size
+ * Preserves position, angle, and origin
  */
 export async function replaceScreenshot(
   canvas: Canvas,
@@ -47,23 +48,37 @@ export async function replaceScreenshot(
   newImageUrl: string,
   FabricImageClass: typeof FabricImage
 ): Promise<FabricImageWithData> {
-  // Store original transform
-  const { left, top, scaleX, scaleY, angle, originX, originY } = targetObject;
+  // Calculate the displayed size of the placeholder
+  const placeholderDisplayWidth = (targetObject.width || 0) * (targetObject.scaleX || 1);
+  const placeholderDisplayHeight = (targetObject.height || 0) * (targetObject.scaleY || 1);
+
+  // Store position, angle, and shadow
+  const { left, top, angle, originX, originY, shadow } = targetObject;
 
   // Load new image
   const newImage = await FabricImageClass.fromURL(newImageUrl, {
     crossOrigin: "anonymous",
   });
 
-  // Apply original transform
+  // Calculate scale to match the placeholder's displayed size
+  const newImageWidth = newImage.width || 1;
+  const newImageHeight = newImage.height || 1;
+
+  // Scale to fit within placeholder dimensions while maintaining aspect ratio
+  const scaleToFitWidth = placeholderDisplayWidth / newImageWidth;
+  const scaleToFitHeight = placeholderDisplayHeight / newImageHeight;
+  const scale = Math.min(scaleToFitWidth, scaleToFitHeight);
+
+  // Apply transform to match placeholder size and position
   newImage.set({
     left,
     top,
-    scaleX,
-    scaleY,
+    scaleX: scale,
+    scaleY: scale,
     angle,
     originX,
     originY,
+    shadow, // Preserve shadow from placeholder
     // Clear placeholder flag - this is now user's image
     data: {
       isPlaceholder: false,
