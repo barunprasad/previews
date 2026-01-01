@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Upload, Loader2, ImagePlus, Trash2, Save, Download, Undo2, Redo2, MoreHorizontal, Type, Palette, Smartphone, ZoomIn, ZoomOut, Maximize } from "lucide-react";
+import { ArrowLeft, Upload, Loader2, ImagePlus, Trash2, Save, Download, Undo2, Redo2, MoreHorizontal, Type, Palette, Smartphone, ZoomIn, ZoomOut, Maximize, LayoutTemplate } from "lucide-react";
 import { Canvas, FabricImage, FabricText, Gradient } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -31,7 +31,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
 import { PreviewStrip } from "@/components/editor/preview-strip";
-import type { Project, DeviceFrame, Preview } from "@/types";
+import { TemplatePicker } from "@/components/editor/template-picker";
+import { isCloudinaryConfigured } from "@/lib/cloudinary/config";
+import { uploadToCloudinary } from "@/lib/cloudinary/upload";
+import type { Project, DeviceFrame, Preview, PreviewTemplate } from "@/types";
 import { cn } from "@/lib/utils";
 
 // Zoom levels
@@ -412,7 +415,7 @@ export function ProjectEditor({
     });
   };
 
-  // Handle file upload
+  // Handle file upload - always use base64 initially, upload to Cloudinary on save
   const handleFileUpload = useCallback(
     async (file: File) => {
       if (!file.type.startsWith("image/")) {
@@ -421,7 +424,8 @@ export function ProjectEditor({
       }
 
       try {
-        // Convert to data URL so it persists when saved
+        // Always use base64 for immediate display
+        // Cloudinary upload happens during save to avoid orphaned images
         const dataUrl = await fileToDataUrl(file);
         addScreenshot(dataUrl);
       } catch (error) {
@@ -504,6 +508,38 @@ export function ProjectEditor({
     []
   );
 
+  // Apply template to canvas
+  const handleApplyTemplate = useCallback(
+    async (template: PreviewTemplate) => {
+      if (!fabricRef.current) return;
+
+      const canvas = fabricRef.current;
+
+      // Clear existing canvas
+      canvas.clear();
+
+      // Load template canvas JSON
+      if (template.canvasJson) {
+        await canvas.loadFromJSON(template.canvasJson);
+      }
+
+      // Apply background
+      applyBackground(canvas, template.background);
+      setBackground(template.background);
+
+      // Check if there are objects
+      const objects = canvas.getObjects();
+      setHasScreenshot(objects.length > 0);
+
+      canvas.renderAll();
+      markDirty();
+      initHistory(canvas);
+
+      toast.success(`Applied "${template.name}" template`);
+    },
+    [applyBackground, markDirty, initHistory]
+  );
+
   // Helper to restore background state from canvas after undo/redo
   const restoreBackgroundState = useCallback((canvas: Canvas) => {
     // For solid colors, restore from canvas.backgroundColor
@@ -527,6 +563,50 @@ export function ProjectEditor({
     await redo(fabricRef.current);
     restoreBackgroundState(fabricRef.current);
   }, [redo, canRedo, restoreBackgroundState]);
+
+  // Helper to convert base64 data URL to Blob
+  const dataUrlToBlob = (dataUrl: string): Blob => {
+    const arr = dataUrl.split(",");
+    const mime = arr[0].match(/:(.*?);/)?.[1] || "image/png";
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  };
+
+  // Helper to upload base64 images in canvas JSON to Cloudinary
+  const uploadBase64ImagesToCloudinary = async (
+    canvasJson: Record<string, unknown>,
+    userId: string,
+    projectId: string
+  ): Promise<Record<string, unknown>> => {
+    if (!isCloudinaryConfigured()) return canvasJson;
+
+    const objects = canvasJson.objects as Array<Record<string, unknown>> | undefined;
+    if (!objects) return canvasJson;
+
+    const updatedObjects = await Promise.all(
+      objects.map(async (obj, index) => {
+        // Check if it's an image with base64 src
+        if (obj.type === "image" && typeof obj.src === "string" && obj.src.startsWith("data:")) {
+          try {
+            const blob = dataUrlToBlob(obj.src);
+            const result = await uploadToCloudinary(blob, userId, projectId, index);
+            return { ...obj, src: result.secure_url };
+          } catch (error) {
+            console.error("Failed to upload image to Cloudinary:", error);
+            return obj; // Keep base64 if upload fails
+          }
+        }
+        return obj;
+      })
+    );
+
+    return { ...canvasJson, objects: updatedObjects };
+  };
 
   // Save all dirty previews
   const handleSave = useCallback(() => {
@@ -559,19 +639,32 @@ export function ProjectEditor({
     startSaving(async () => {
       const supabase = createClient();
 
-      // Save all dirty previews in parallel
+      // Get user for Cloudinary uploads
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Upload base64 images to Cloudinary and save previews
       const results = await Promise.all(
-        previewsToSave.map((preview) =>
-          supabase
+        previewsToSave.map(async (preview) => {
+          // Upload base64 images to Cloudinary if configured
+          let processedCanvasJson = preview.canvasJson;
+          if (user && preview.canvasJson) {
+            processedCanvasJson = await uploadBase64ImagesToCloudinary(
+              preview.canvasJson as Record<string, unknown>,
+              user.id,
+              project.id
+            );
+          }
+
+          return supabase
             .from("previews")
             .update({
-              canvas_json: preview.canvasJson,
+              canvas_json: processedCanvasJson,
               thumbnail_url: preview.thumbnailUrl,
               background: preview.background,
               updated_at: new Date().toISOString(),
             })
-            .eq("id", preview.id)
-        )
+            .eq("id", preview.id);
+        })
       );
 
       const failed = results.filter((r) => r.error);
@@ -584,7 +677,7 @@ export function ProjectEditor({
         toast.error(`Failed to save ${failed.length} preview(s)`);
       }
     });
-  }, [activePreview, background, previews, dirtyPreviewIds]);
+  }, [activePreview, background, previews, dirtyPreviewIds, project.id]);
 
   // Handle preview selection
   const handlePreviewSelect = useCallback(
@@ -779,6 +872,11 @@ export function ProjectEditor({
             />
 
             <BackgroundPicker value={background} onChange={setBackground} />
+
+            <TemplatePicker
+              onSelectTemplate={handleApplyTemplate}
+              currentDeviceType={project.deviceType as "iphone" | "android"}
+            />
 
             <Separator orientation="vertical" className="mx-2 h-6" />
 
@@ -1039,6 +1137,11 @@ export function ProjectEditor({
             </DropdownMenu>
 
             <BackgroundPicker value={background} onChange={setBackground} />
+
+            <TemplatePicker
+              onSelectTemplate={handleApplyTemplate}
+              currentDeviceType={project.deviceType as "iphone" | "android"}
+            />
 
             <Button
               variant="ghost"

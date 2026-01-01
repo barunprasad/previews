@@ -120,3 +120,16 @@ export interface CanvasState {
   objects: CanvasObject[];
   background?: string;
 }
+
+// Template Types
+export type TemplateCategory = "minimal" | "gradient" | "showcase";
+
+export interface PreviewTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: TemplateCategory;
+  deviceType: DeviceType | "both";
+  background: string;
+  canvasJson: Record<string, unknown>;
+}

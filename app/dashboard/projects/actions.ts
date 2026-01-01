@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createProjectSchema, updateProjectSchema } from "@/lib/validations/project";
+import { deleteProjectCloudinaryImages } from "@/lib/cloudinary/server";
 import type { ActionState } from "@/types";
 
 export async function createProjectAction(
@@ -68,6 +69,23 @@ export async function deleteProjectAction(projectId: string): Promise<ActionStat
     };
   }
 
+  // First, fetch all previews to get their canvas_json for Cloudinary cleanup
+  const { data: previews } = await supabase
+    .from("previews")
+    .select("canvas_json")
+    .eq("project_id", projectId);
+
+  // Delete Cloudinary images (non-blocking, don't fail if this errors)
+  if (previews && previews.length > 0) {
+    try {
+      await deleteProjectCloudinaryImages(previews);
+    } catch (error) {
+      // Log but don't fail the deletion
+      console.error("Failed to delete Cloudinary images:", error);
+    }
+  }
+
+  // Delete the project (cascades to previews via DB)
   const { error } = await supabase
     .from("projects")
     .delete()
