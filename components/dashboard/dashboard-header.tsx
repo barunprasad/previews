@@ -8,7 +8,6 @@ import {
   FolderOpen,
   LayoutTemplate,
   Plus,
-  Smartphone,
   Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Logo } from "@/components/ui/logo";
 import { UserMenu } from "./user-menu";
 import { cn } from "@/lib/utils";
 
@@ -116,18 +116,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
           </DropdownMenu>
 
           {/* Logo */}
-          <Link href="/dashboard" className="group flex items-center gap-2.5">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="relative flex h-8 w-8 items-center justify-center rounded-lg gradient-bg shadow-soft"
-            >
-              <Smartphone className="h-4 w-4 text-white" />
-            </motion.div>
-            <span className="text-lg font-bold hidden sm:inline">
-              <span className="gradient-text">Previews</span>
-            </span>
-          </Link>
+          <Logo href="/dashboard" hideTextOnMobile />
         </div>
 
         {/* Spacer */}

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { motion } from "motion/react";
-import { Smartphone } from "lucide-react";
+import { Heart } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 
 export function Footer() {
   return (
@@ -19,19 +20,7 @@ export function Footer() {
       <div className="container mx-auto max-w-6xl px-4 py-12">
         <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
           {/* Logo */}
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl gradient-bg shadow-soft">
-                <Smartphone className="h-4.5 w-4.5 text-white" />
-              </div>
-              <span className="text-lg font-bold tracking-tight">
-                <span className="gradient-text">Previews</span>
-              </span>
-            </Link>
-          </motion.div>
+          <Logo href="/" size="lg" />
 
           {/* Links */}
           <nav className="flex flex-wrap items-center justify-center gap-8">
@@ -56,6 +45,37 @@ export function Footer() {
             &copy; {new Date().getFullYear()} Previews. All rights reserved.
           </p>
         </div>
+
+        {/* Divider */}
+        <div className="mt-8 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+        {/* Built by section */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="mt-8 flex items-center justify-center gap-1.5 text-sm text-muted-foreground"
+        >
+          <span>Built with</span>
+          <motion.div
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          >
+            <Heart className="h-4 w-4 fill-[var(--accent-coral)] text-[var(--accent-coral)]" />
+          </motion.div>
+          <span>by</span>
+          <motion.a
+            href="https://barunprasad.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="relative font-medium text-foreground transition-colors hover:text-[var(--accent-orange)]"
+            whileHover={{ y: -1 }}
+          >
+            Barun Prasad
+            <span className="absolute -bottom-0.5 left-0 h-0.5 w-full bg-gradient-to-r from-[var(--accent-orange)] to-[var(--accent-coral)] opacity-50" />
+          </motion.a>
+        </motion.div>
       </div>
     </footer>
   );

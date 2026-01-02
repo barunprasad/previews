@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
-import { Button } from "@/components/ui/button";
+import { MovingBorderButton } from "@/components/ui/aceternity/moving-border";
 
 export function CTA() {
   return (
@@ -99,21 +99,19 @@ export function CTA() {
             transition={{ delay: 0.3, duration: 0.5 }}
             className="relative mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
           >
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <Button
-                size="lg"
-                asChild
-                className="gap-2 px-8 bg-white text-[var(--accent-orange)] hover:bg-white/90 shadow-elevated"
+            <Link href="/signup">
+              <MovingBorderButton
+                duration={3000}
+                borderClassName="stroke-white"
+                className="bg-white text-[var(--accent-orange)] hover:bg-white/95 font-semibold"
+                containerClassName="shadow-elevated"
               >
-                <Link href="/signup">
+                <span className="flex items-center gap-2">
                   Get Started for Free
                   <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </motion.div>
+                </span>
+              </MovingBorderButton>
+            </Link>
           </motion.div>
 
           {/* Decorative border glow */}

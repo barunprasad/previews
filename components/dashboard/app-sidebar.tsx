@@ -7,8 +7,8 @@ import {
   FolderOpen,
   Plus,
   LogOut,
-  Smartphone,
 } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 import {
   Sidebar,
   SidebarContent,
@@ -44,12 +44,7 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-border px-4 py-4">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Smartphone className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="text-lg font-semibold">Previews</span>
-        </Link>
+        <Logo href="/dashboard" />
       </SidebarHeader>
 
       <SidebarContent>

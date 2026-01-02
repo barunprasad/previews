@@ -1,23 +1,23 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Upload, Smartphone, Wand2, Download } from "lucide-react";
+import { Upload, LayoutTemplate, Wand2, Download } from "lucide-react";
 
 const steps = [
   {
     step: "01",
-    icon: Smartphone,
-    title: "Choose your device",
+    icon: LayoutTemplate,
+    title: "Pick a template",
     description:
-      "Select from our collection of iPhone, Android, and tablet frames.",
+      "Browse our library of professionally designed templates, or start from scratch with any device.",
     gradient: "from-[var(--accent-orange)] to-[var(--accent-amber)]",
   },
   {
     step: "02",
     icon: Upload,
-    title: "Upload your screenshot",
+    title: "Upload your screenshots",
     description:
-      "Drag and drop your app screenshot. It will automatically fit the device screen.",
+      "Drag and drop your app screenshots. They automatically fit the device screen perfectly.",
     gradient: "from-[var(--accent-amber)] to-[var(--accent-gold)]",
   },
   {
@@ -25,7 +25,7 @@ const steps = [
     icon: Wand2,
     title: "Customize your design",
     description:
-      "Add backgrounds, text overlays, and adjust positioning to make it perfect.",
+      "Add backgrounds, text overlays, badges, and adjust positioning to make it perfect.",
     gradient: "from-[var(--accent-coral)] to-[var(--accent-orange)]",
   },
   {
@@ -33,7 +33,7 @@ const steps = [
     icon: Download,
     title: "Export and submit",
     description:
-      "Download your high-resolution mockup, ready for the App Store or Play Store.",
+      "Download high-resolution mockups in exact App Store and Play Store dimensions.",
     gradient: "from-[var(--accent-orange)] to-[var(--accent-coral)]",
   },
 ];

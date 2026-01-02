@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { Suspense, useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, CheckCircle2 } from "lucide-react";
@@ -19,10 +19,22 @@ import {
 import { loginAction, loginWithOAuth } from "./actions";
 import { OAuthButtons } from "../_components/oauth-buttons";
 
-export default function LoginPage() {
-  const [state, formAction, isPending] = useActionState(loginAction, null);
+function LoginMessage() {
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
+
+  if (!message) return null;
+
+  return (
+    <div className="flex items-center gap-2 rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400">
+      <CheckCircle2 className="h-4 w-4 shrink-0" />
+      {message}
+    </div>
+  );
+}
+
+function LoginForm() {
+  const [state, formAction, isPending] = useActionState(loginAction, null);
 
   return (
     <Card className="border-0 shadow-lg sm:border">
@@ -35,12 +47,9 @@ export default function LoginPage() {
 
       <CardContent className="space-y-4">
         {/* Success message from password reset */}
-        {message && (
-          <div className="flex items-center gap-2 rounded-md bg-green-500/10 p-3 text-sm text-green-600 dark:text-green-400">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            {message}
-          </div>
-        )}
+        <Suspense fallback={null}>
+          <LoginMessage />
+        </Suspense>
 
         {/* OAuth Buttons */}
         <OAuthButtons onOAuth={loginWithOAuth} />
@@ -121,4 +130,8 @@ export default function LoginPage() {
       </CardFooter>
     </Card>
   );
+}
+
+export default function LoginPage() {
+  return <LoginForm />;
 }

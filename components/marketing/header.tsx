@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Smartphone } from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 
 export function Header() {
@@ -33,19 +33,7 @@ export function Header() {
     >
       <div className="container mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         {/* Logo with glow effect */}
-        <Link href="/" className="group flex items-center gap-2.5">
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="relative flex h-9 w-9 items-center justify-center rounded-xl gradient-bg shadow-soft"
-          >
-            <Smartphone className="h-4.5 w-4.5 text-white" />
-            <div className="absolute inset-0 rounded-xl bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
-          </motion.div>
-          <span className="text-lg font-bold tracking-tight">
-            <span className="gradient-text">Previews</span>
-          </span>
-        </Link>
+        <Logo href="/" size="lg" />
 
         {/* Navigation links */}
         <nav className="hidden items-center gap-8 md:flex">

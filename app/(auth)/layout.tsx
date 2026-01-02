@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Smartphone } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 
 export default function AuthLayout({
   children,
@@ -10,12 +9,7 @@ export default function AuthLayout({
     <div className="flex min-h-screen flex-col">
       {/* Header */}
       <header className="flex h-16 items-center justify-center border-b border-border px-4">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Smartphone className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight">Previews</span>
-        </Link>
+        <Logo href="/" />
       </header>
 
       {/* Main content */}
