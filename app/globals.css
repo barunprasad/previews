@@ -545,6 +545,198 @@ body {
   }
 }
 
+/* Device floating animations (optimized CSS) */
+@keyframes device-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.device-float {
+  animation: device-float 4s ease-in-out infinite;
+  will-change: transform;
+}
+
+.device-float-delayed {
+  animation: device-float 4s ease-in-out infinite;
+  animation-delay: 0.5s;
+  will-change: transform;
+}
+
+/* Decorative floating elements */
+@keyframes decorative-float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-15px) rotate(5deg);
+  }
+}
+
+@keyframes decorative-float-reverse {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(10px) rotate(-5deg);
+  }
+}
+
+.decorative-float {
+  animation: decorative-float 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.decorative-float-reverse {
+  animation: decorative-float-reverse 5s ease-in-out infinite;
+  animation-delay: 1s;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .device-float,
+  .device-float-delayed,
+  .decorative-float,
+  .decorative-float-reverse {
+    animation: none;
+  }
+}
+
+/* Feature section animations (optimized CSS) */
+@keyframes feature-device-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.feature-device-float {
+  animation: feature-device-float 3s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Pulse animation for badges/dots */
+@keyframes feature-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.feature-pulse {
+  animation: feature-pulse 2s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Subtle pulse for buttons */
+@keyframes feature-pulse-subtle {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+.feature-pulse-subtle {
+  animation: feature-pulse-subtle 2.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Zap glow effect */
+@keyframes feature-zap-glow {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.05);
+  }
+}
+
+.feature-zap-glow {
+  animation: feature-zap-glow 1.5s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+/* Shield wobble */
+@keyframes feature-shield-wobble {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(3deg);
+  }
+  75% {
+    transform: rotate(-3deg);
+  }
+}
+
+.feature-shield-wobble {
+  animation: feature-shield-wobble 4s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Glow pulse for shield */
+@keyframes feature-glow-pulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+.feature-glow-pulse {
+  animation: feature-glow-pulse 2s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+/* Sparkle pulse */
+@keyframes feature-sparkle-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+.feature-sparkle-pulse {
+  animation: feature-sparkle-pulse 1.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feature-device-float,
+  .feature-pulse,
+  .feature-pulse-subtle,
+  .feature-zap-glow,
+  .feature-shield-wobble,
+  .feature-glow-pulse,
+  .feature-sparkle-pulse {
+    animation: none;
+  }
+
+  .feature-zap-glow {
+    opacity: 0.4;
+  }
+
+  .feature-glow-pulse {
+    opacity: 0.3;
+  }
+}
+
 /* ============================================
    SHADOW UTILITIES
    ============================================ */

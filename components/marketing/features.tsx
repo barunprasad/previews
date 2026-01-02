@@ -23,27 +23,15 @@ const features = [
     gradient: "from-violet-500 to-purple-500",
     header: (
       <div className="flex h-full min-h-[8rem] items-center justify-center gap-4 bg-gradient-to-br from-violet-500/10 via-purple-500/5 to-fuchsia-500/10 dark:from-violet-500/20 dark:via-purple-500/10 dark:to-fuchsia-500/20 p-4">
-        <motion.div
-          animate={{ y: [0, -5, 0] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          className="h-20 w-10 rounded-[12px] bg-gradient-to-b from-slate-800 to-slate-900 p-[2px] shadow-xl ring-1 ring-white/10"
-        >
+        <div className="h-20 w-10 rounded-[12px] bg-gradient-to-b from-slate-800 to-slate-900 p-[2px] shadow-xl ring-1 ring-white/10 feature-device-float">
           <div className="h-full w-full rounded-[10px] bg-gradient-to-br from-violet-500 to-purple-600" />
-        </motion.div>
-        <motion.div
-          animate={{ y: [0, -5, 0] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
-          className="h-20 w-10 rounded-[10px] bg-gradient-to-b from-slate-800 to-slate-900 p-[2px] shadow-xl ring-1 ring-white/10"
-        >
+        </div>
+        <div className="h-20 w-10 rounded-[10px] bg-gradient-to-b from-slate-800 to-slate-900 p-[2px] shadow-xl ring-1 ring-white/10 feature-device-float" style={{ animationDelay: "0.3s" }}>
           <div className="h-full w-full rounded-[8px] bg-gradient-to-br from-fuchsia-500 to-pink-600" />
-        </motion.div>
-        <motion.div
-          animate={{ y: [0, -5, 0] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.6 }}
-          className="h-20 w-10 rounded-[10px] bg-gradient-to-b from-slate-800 to-slate-900 p-[2px] shadow-xl ring-1 ring-white/10"
-        >
+        </div>
+        <div className="h-20 w-10 rounded-[10px] bg-gradient-to-b from-slate-800 to-slate-900 p-[2px] shadow-xl ring-1 ring-white/10 feature-device-float" style={{ animationDelay: "0.6s" }}>
           <div className="h-full w-full rounded-[8px] bg-gradient-to-br from-cyan-500 to-blue-600" />
-        </motion.div>
+        </div>
       </div>
     ),
   },
@@ -71,11 +59,7 @@ const features = [
                 <div className="h-8 w-8 mx-auto mt-2 rounded bg-white/15" />
               </div>
               {i === 1 && (
-                <motion.div
-                  animate={{ scale: [1, 1.1, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"
-                />
+                <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900 feature-pulse" />
               )}
             </motion.div>
           ))}
@@ -155,14 +139,10 @@ const features = [
     gradient: "from-pink-500 to-rose-500",
     header: (
       <div className="flex h-full min-h-[8rem] items-center justify-center bg-gradient-to-br from-pink-500/10 via-rose-500/5 to-red-500/10 dark:from-pink-500/20 dark:via-rose-500/10 dark:to-red-500/20 p-4">
-        <motion.div
-          animate={{ scale: [1, 1.05, 1] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="flex items-center gap-2 rounded-xl bg-white/80 dark:bg-white/10 backdrop-blur-sm px-4 py-2.5 shadow-lg ring-1 ring-black/5 dark:ring-white/10"
-        >
+        <div className="flex items-center gap-2 rounded-xl bg-white/80 dark:bg-white/10 backdrop-blur-sm px-4 py-2.5 shadow-lg ring-1 ring-black/5 dark:ring-white/10 feature-pulse-subtle">
           <Download className="h-5 w-5 text-pink-500" />
           <span className="text-sm font-semibold text-slate-700 dark:text-white">Export PNG</span>
-        </motion.div>
+        </div>
       </div>
     ),
   },
@@ -174,16 +154,9 @@ const features = [
     gradient: "from-amber-500 to-orange-500",
     header: (
       <div className="relative flex h-full min-h-[8rem] items-center justify-center overflow-hidden bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-red-500/10 dark:from-amber-500/20 dark:via-orange-500/10 dark:to-red-500/20 p-4">
-        <motion.div
-          animate={{
-            opacity: [0.3, 0.7, 0.3],
-            scale: [0.8, 1.1, 0.8],
-          }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-          className="absolute"
-        >
+        <div className="absolute feature-zap-glow">
           <Zap className="h-20 w-20 text-amber-500/30 dark:text-amber-400/30" />
-        </motion.div>
+        </div>
         <Zap className="h-12 w-12 text-amber-500 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]" />
       </div>
     ),
@@ -196,18 +169,10 @@ const features = [
     gradient: "from-indigo-500 to-violet-500",
     header: (
       <div className="flex h-full min-h-[8rem] items-center justify-center bg-gradient-to-br from-indigo-500/10 via-violet-500/5 to-purple-500/10 dark:from-indigo-500/20 dark:via-violet-500/10 dark:to-purple-500/20 p-4">
-        <motion.div
-          animate={{ rotate: [0, 5, -5, 0] }}
-          transition={{ duration: 4, repeat: Infinity }}
-          className="relative"
-        >
+        <div className="relative feature-shield-wobble">
           <Shield className="h-14 w-14 text-indigo-500 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
-          <motion.div
-            animate={{ scale: [1, 1.8, 1], opacity: [0.5, 0, 0.5] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className="absolute inset-0 rounded-full bg-indigo-500/30 blur-xl"
-          />
-        </motion.div>
+          <div className="absolute inset-0 rounded-full bg-indigo-500/30 blur-xl feature-glow-pulse" />
+        </div>
       </div>
     ),
   },
@@ -230,12 +195,9 @@ const features = [
             >
               <div className="h-full w-full rounded bg-slate-200 dark:bg-slate-500" />
             </motion.div>
-            <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            >
+            <div className="feature-sparkle-pulse">
               <Sparkles className="h-5 w-5 text-fuchsia-500" />
-            </motion.div>
+            </div>
             <motion.div
               initial={{ opacity: 0, x: 10 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -285,14 +247,10 @@ const features = [
                 </div>
               </motion.div>
             ))}
-            <motion.div
-              animate={{ y: [0, -5, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className="relative ml-16 mt-2 flex items-center gap-1 rounded-full bg-teal-500 px-2 py-1 text-[10px] font-medium text-white shadow-lg"
-            >
+            <div className="relative ml-16 mt-2 flex items-center gap-1 rounded-full bg-teal-500 px-2 py-1 text-[10px] font-medium text-white shadow-lg feature-device-float">
               <Package className="h-3 w-3" />
               ZIP
-            </motion.div>
+            </div>
           </div>
         </div>
       </div>
@@ -303,10 +261,10 @@ const features = [
 export function Features() {
   return (
     <section id="features" className="relative py-20 md:py-32 overflow-hidden">
-      {/* Background decorations */}
+      {/* Background decorations (optimized blur) */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute top-1/4 left-0 h-[400px] w-[400px] rounded-full bg-violet-500 opacity-5 blur-[100px]" />
-        <div className="absolute bottom-1/4 right-0 h-[500px] w-[500px] rounded-full bg-cyan-500 opacity-5 blur-[100px]" />
+        <div className="absolute top-1/4 left-0 h-[300px] w-[300px] rounded-full bg-violet-500 opacity-5 blur-[60px]" />
+        <div className="absolute bottom-1/4 right-0 h-[350px] w-[350px] rounded-full bg-cyan-500 opacity-5 blur-[60px]" />
       </div>
 
       <div className="container mx-auto max-w-6xl px-4">

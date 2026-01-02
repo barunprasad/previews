@@ -56,12 +56,12 @@ export function Hero() {
       {/* Grid beams */}
       <GridBeams className="-z-10 opacity-30" />
 
-      {/* Additional gradient overlay for depth */}
+      {/* Additional gradient overlay for depth (optimized blur values) */}
       <div className="absolute inset-0 -z-10">
         <div className="absolute inset-0 bg-gradient-to-b from-background via-transparent to-background" />
-        <div className="absolute left-1/4 top-0 h-[600px] w-[600px] rounded-full bg-[var(--accent-orange)] opacity-20 blur-[100px]" />
-        <div className="absolute right-1/4 top-1/4 h-[500px] w-[500px] rounded-full bg-[var(--accent-amber)] opacity-15 blur-[100px]" />
-        <div className="absolute bottom-0 left-1/2 h-[400px] w-[800px] -translate-x-1/2 rounded-full bg-[var(--accent-coral)] opacity-10 blur-[120px]" />
+        <div className="absolute left-1/4 top-0 h-[400px] w-[400px] rounded-full bg-[var(--accent-orange)] opacity-15 blur-[60px]" />
+        <div className="absolute right-1/4 top-1/4 h-[350px] w-[350px] rounded-full bg-[var(--accent-amber)] opacity-12 blur-[60px]" />
+        <div className="absolute bottom-0 left-1/2 h-[300px] w-[600px] -translate-x-1/2 rounded-full bg-[var(--accent-coral)] opacity-10 blur-[80px]" />
       </div>
 
       <div className="container mx-auto max-w-6xl px-4 py-20 md:py-32">
@@ -174,11 +174,7 @@ export function Hero() {
               <div className="flex min-h-[300px] items-center justify-center p-8 md:min-h-[400px] lg:min-h-[500px] bg-gradient-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent">
                 <div className="flex flex-col items-center gap-6 md:flex-row md:gap-12 lg:gap-16">
                   {/* iPhone 17 Pro mockup with real bezel */}
-                  <motion.div
-                    animate={{ y: [0, -10, 0] }}
-                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                    className="relative"
-                  >
+                  <div className="relative device-float">
                     {/* Device glow */}
                     <div className="absolute -inset-4 rounded-[32px] bg-gradient-to-b from-[var(--accent-orange)]/20 to-[var(--accent-amber)]/10 blur-xl" />
 
@@ -215,20 +211,13 @@ export function Hero() {
                       </div>
                     </div>
 
-                    <motion.div
-                      whileHover={{ scale: 1.1 }}
-                      className="absolute -bottom-2 -right-2 rounded-full gradient-bg px-3 py-1 text-xs font-medium text-white shadow-lg glow-sm"
-                    >
+                    <div className="absolute -bottom-2 -right-2 rounded-full gradient-bg px-3 py-1 text-xs font-medium text-white shadow-lg glow-sm transition-transform hover:scale-110">
                       iPhone 17 Pro
-                    </motion.div>
-                  </motion.div>
+                    </div>
+                  </div>
 
                   {/* Samsung Galaxy S25 Ultra mockup */}
-                  <motion.div
-                    animate={{ y: [0, -10, 0] }}
-                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-                    className="relative"
-                  >
+                  <div className="relative device-float-delayed">
                     {/* Device glow */}
                     <div className="absolute -inset-4 rounded-[24px] bg-gradient-to-b from-blue-500/20 to-purple-500/10 blur-xl" />
 
@@ -247,29 +236,18 @@ export function Hero() {
                       </div>
                     </SamsungGalaxyS25Ultra>
 
-                    <motion.div
-                      whileHover={{ scale: 1.1 }}
-                      className="absolute -bottom-2 -right-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 px-3 py-1 text-xs font-medium text-white shadow-lg"
-                    >
+                    <div className="absolute -bottom-2 -right-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 px-3 py-1 text-xs font-medium text-white shadow-lg transition-transform hover:scale-110">
                       Galaxy S25 Ultra
-                    </motion.div>
-                  </motion.div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </SpotlightCard>
 
-          {/* Decorative floating elements */}
-          <motion.div
-            animate={{ y: [0, -20, 0], rotate: [0, 10, 0] }}
-            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute -left-8 top-1/4 h-16 w-16 rounded-2xl gradient-bg opacity-20 blur-sm md:h-24 md:w-24"
-          />
-          <motion.div
-            animate={{ y: [0, 15, 0], rotate: [0, -10, 0] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-            className="absolute -right-4 bottom-1/4 h-12 w-12 rounded-full bg-[var(--accent-coral)] opacity-30 blur-sm md:h-20 md:w-20"
-          />
+          {/* Decorative floating elements (CSS animations) */}
+          <div className="absolute -left-8 top-1/4 h-16 w-16 rounded-2xl gradient-bg opacity-20 blur-sm md:h-24 md:w-24 decorative-float" />
+          <div className="absolute -right-4 bottom-1/4 h-12 w-12 rounded-full bg-[var(--accent-coral)] opacity-30 blur-sm md:h-20 md:w-20 decorative-float-reverse" />
         </motion.div>
       </div>
     </section>
