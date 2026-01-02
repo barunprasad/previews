@@ -119,7 +119,7 @@ export function applyColorToCanvasJson(
   const objects = canvasJson.objects as Array<Record<string, unknown>>;
   const updatedObjects = objects.map((obj) => {
     // Update text fill colors that match the theme
-    if (obj.type === "text" || obj.type === "textbox") {
+    if (obj.type === "Text" || obj.type === "text" || obj.type === "Textbox" || obj.type === "textbox") {
       const fill = obj.fill as string;
       // Only update colored text (not white/black)
       if (fill && fill.startsWith("#") && fill !== "#ffffff" && fill !== "#000000") {

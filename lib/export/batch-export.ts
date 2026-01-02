@@ -141,7 +141,7 @@ async function exportPreviewAtSize(
 
       // Wait for images to load
       const objects = exportCanvas.getObjects();
-      const hasImages = objects.some((obj) => obj.type === "image" || obj.type === "group");
+      const hasImages = objects.some((obj) => obj.type === "Image" || obj.type === "Group");
 
       if (hasImages) {
         await new Promise((res) => setTimeout(res, 500));

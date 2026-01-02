@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { ExportDialog } from "@/components/editor/export-dialog";
 import { BatchExportDialog } from "@/components/editor/batch-export-dialog";
 import { DeviceMockup, getDeviceMockup } from "@/lib/devices/frames";
+import { BezelConfig, getBezelById, allBezels } from "@/lib/devices/bezels";
 import { RightPanel } from "@/components/editor/right-panel";
 import { useCanvasHistory } from "@/hooks/use-canvas-history";
 import { useBackgroundRemoval } from "@/hooks/use-background-removal";
@@ -70,6 +71,7 @@ export function ProjectEditor({
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isBatchExportOpen, setIsBatchExportOpen] = useState(false);
   const [currentMockup, setCurrentMockup] = useState<DeviceMockup | null>(null);
+  const [currentBezel, setCurrentBezel] = useState<BezelConfig | null>(null);
   const deviceFrameRef = useRef<Group | null>(null);
   const [isSaving, startSaving] = useTransition();
   const [isCanvasReady, setIsCanvasReady] = useState(false);
@@ -173,7 +175,7 @@ export function ProjectEditor({
     // Selection event handlers for text styling
     const handleSelection = () => {
       const activeObject = canvas.getActiveObject();
-      if (activeObject && (activeObject.type === "text" || activeObject.type === "textbox" || activeObject.type === "i-text")) {
+      if (activeObject && (activeObject.type === "Text" || activeObject.type === "Textbox" || activeObject.type === "IText")) {
         const textObj = activeObject as FabricText;
         setSelectedTextStyle({
           fontSize: textObj.fontSize || 48,
@@ -181,7 +183,7 @@ export function ProjectEditor({
           fill: String(textObj.fill || "#ffffff"),
         });
         setHasSelectedImage(false);
-      } else if (activeObject && activeObject.type === "image") {
+      } else if (activeObject && activeObject.type === "Image") {
         setSelectedTextStyle(null);
         setHasSelectedImage(true);
       } else {
@@ -251,9 +253,13 @@ export function ProjectEditor({
 
         // Detect existing device frame and restore state
         if (hasObjects) {
-          const detectedMockup = detectDeviceFrameOnCanvas(canvas);
-          if (detectedMockup) {
-            setCurrentMockup(detectedMockup);
+          const { mockup, bezel } = detectDeviceFrameOnCanvas(canvas);
+          if (bezel) {
+            setCurrentBezel(bezel);
+            setCurrentMockup(null);
+          } else if (mockup) {
+            setCurrentMockup(mockup);
+            setCurrentBezel(null);
           }
         }
 
@@ -420,6 +426,223 @@ export function ProjectEditor({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [canUndo, canRedo, undo, redo]);
 
+  // Helper function to create a device frame group (programmatic)
+  const createDeviceFrameGroup = useCallback((image: FabricImage, mockup: DeviceMockup): Group => {
+    // Get image dimensions (without rotation affecting them)
+    const imgWidth = (image.width || 0) * (image.scaleX || 1);
+    const imgHeight = (image.height || 0) * (image.scaleY || 1);
+
+    // Get the image's rotation angle
+    const imageAngle = image.angle || 0;
+
+    // Get the center point of the image
+    const centerPoint = image.getCenterPoint();
+
+    // Scale bezel based on image size (base size is for ~400px width)
+    const scaleFactor = imgWidth / 400;
+    const bezel = {
+      top: mockup.bezel.top * scaleFactor,
+      bottom: mockup.bezel.bottom * scaleFactor,
+      left: mockup.bezel.left * scaleFactor,
+      right: mockup.bezel.right * scaleFactor,
+    };
+    const cornerRadius = mockup.cornerRadius * scaleFactor;
+
+    // Calculate frame dimensions
+    const frameWidth = imgWidth + bezel.left + bezel.right;
+    const frameHeight = imgHeight + bezel.top + bezel.bottom;
+
+    // Create device frame (bezel) - position relative to group center
+    const frame = new Rect({
+      left: -frameWidth / 2,
+      top: -frameHeight / 2,
+      width: frameWidth,
+      height: frameHeight,
+      fill: mockup.frameColor,
+      rx: cornerRadius,
+      ry: cornerRadius,
+      originX: "left",
+      originY: "top",
+      strokeWidth: 1,
+      stroke: "#333333",
+      shadow: new Shadow({
+        color: "rgba(0,0,0,0.5)",
+        blur: 25 * scaleFactor,
+        offsetX: 0,
+        offsetY: 8 * scaleFactor,
+      }),
+    });
+
+    // Clone the image for the group (positioned relative to group center, without rotation)
+    const clonedImage = new FabricImage(image.getElement(), {
+      left: -imgWidth / 2 + (bezel.left - bezel.right) / 2,
+      top: -imgHeight / 2 + (bezel.top - bezel.bottom) / 2,
+      scaleX: image.scaleX,
+      scaleY: image.scaleY,
+      originX: "left",
+      originY: "top",
+      angle: 0, // Reset angle - the group will handle rotation
+    });
+
+    // Build group objects array
+    const groupObjects: (Rect | FabricImage)[] = [frame, clonedImage];
+
+    // Add Dynamic Island if applicable
+    if (mockup.hasDynamicIsland) {
+      const islandWidth = 95 * scaleFactor;
+      const islandHeight = 28 * scaleFactor;
+
+      const island = new Rect({
+        left: -islandWidth / 2 + (bezel.left - bezel.right) / 2,
+        top: -imgHeight / 2 + (8 * scaleFactor) + (bezel.top - bezel.bottom) / 2,
+        width: islandWidth,
+        height: islandHeight,
+        fill: "#000000",
+        rx: islandHeight / 2,
+        ry: islandHeight / 2,
+        originX: "left",
+        originY: "top",
+      });
+      groupObjects.push(island);
+    }
+
+    // Add notch if applicable
+    if (mockup.hasNotch) {
+      const notchWidth = 150 * scaleFactor;
+      const notchHeight = 30 * scaleFactor;
+
+      const notch = new Rect({
+        left: -notchWidth / 2 + (bezel.left - bezel.right) / 2,
+        top: -imgHeight / 2 + (bezel.top - bezel.bottom) / 2,
+        width: notchWidth,
+        height: notchHeight,
+        fill: "#000000",
+        rx: 0,
+        ry: 0,
+        originX: "left",
+        originY: "top",
+      });
+      groupObjects.push(notch);
+    }
+
+    // Create the group with the image's rotation
+    const deviceGroup = new Group(groupObjects, {
+      left: centerPoint.x,
+      top: centerPoint.y,
+      originX: "center",
+      originY: "center",
+      angle: imageAngle, // Apply the image's rotation to the entire group
+    });
+
+    // Store mockup ID as direct property
+    (deviceGroup as Group & { deviceMockupId?: string }).deviceMockupId = mockup.id;
+
+    return deviceGroup;
+  }, []);
+
+  // Helper function to create a device frame group using SVG bezel
+  const createDeviceFrameWithBezel = useCallback(async (image: FabricImage, bezel: BezelConfig): Promise<Group> => {
+    // Get image dimensions (without rotation affecting them)
+    const imgWidth = (image.width || 0) * (image.scaleX || 1);
+    const imgHeight = (image.height || 0) * (image.scaleY || 1);
+
+    // Get the image's rotation angle
+    const imageAngle = image.angle || 0;
+
+    // Get the center point of the image
+    const centerPoint = image.getCenterPoint();
+
+    // Load the bezel SVG as a FabricImage
+    const bezelImage = await FabricImage.fromURL(bezel.bezelPath, {
+      crossOrigin: "anonymous",
+    });
+
+    // Calculate scaling for the bezel to match the image size
+    // The bezel's screen area should contain the image
+    const screenWidthRatio = imgWidth / bezel.screen.width;
+    const screenHeightRatio = imgHeight / bezel.screen.height;
+
+    // Use the larger ratio to ensure image fills the screen area
+    // (or use Math.min to fit within, depending on desired behavior)
+    const bezelScale = Math.max(screenWidthRatio, screenHeightRatio);
+
+    // Scale the bezel
+    const scaledBezelWidth = bezel.bezelWidth * bezelScale;
+    const scaledBezelHeight = bezel.bezelHeight * bezelScale;
+    const scaledScreenX = bezel.screen.x * bezelScale;
+    const scaledScreenY = bezel.screen.y * bezelScale;
+    const scaledScreenWidth = bezel.screen.width * bezelScale;
+    const scaledScreenHeight = bezel.screen.height * bezelScale;
+
+    // Position bezel image (relative to group center)
+    bezelImage.set({
+      left: -scaledBezelWidth / 2,
+      top: -scaledBezelHeight / 2,
+      scaleX: bezelScale,
+      scaleY: bezelScale,
+      originX: "left",
+      originY: "top",
+    });
+
+    // Calculate image position within the bezel's screen area
+    // Image should be centered within the screen area
+    const imageOffsetX = -scaledBezelWidth / 2 + scaledScreenX + (scaledScreenWidth - imgWidth) / 2;
+    const imageOffsetY = -scaledBezelHeight / 2 + scaledScreenY + (scaledScreenHeight - imgHeight) / 2;
+
+    // Scale the corner radius - but adjust for image's scale since clipPath is in local coords
+    const scaledCornerRadius = bezel.screen.cornerRadius * bezelScale;
+    const imageScaleX = image.scaleX || 1;
+    const imageScaleY = image.scaleY || 1;
+
+    // Clip path uses the image's natural (unscaled) dimensions
+    // Corner radius needs to be in unscaled coordinates
+    const naturalWidth = image.width || 1;
+    const naturalHeight = image.height || 1;
+    const clipCornerRadiusX = scaledCornerRadius / imageScaleX;
+    const clipCornerRadiusY = scaledCornerRadius / imageScaleY;
+
+    // Create a clip path with rounded corners to match the screen area
+    const clipPath = new Rect({
+      width: naturalWidth,
+      height: naturalHeight,
+      rx: clipCornerRadiusX,
+      ry: clipCornerRadiusY,
+      originX: "center",
+      originY: "center",
+      left: 0,
+      top: 0,
+    });
+
+    // Clone the image for the group
+    const clonedImage = new FabricImage(image.getElement(), {
+      left: imageOffsetX,
+      top: imageOffsetY,
+      scaleX: image.scaleX,
+      scaleY: image.scaleY,
+      originX: "left",
+      originY: "top",
+      angle: 0, // Reset angle - the group will handle rotation
+      clipPath: clipPath,
+    });
+
+    // Create the group with screenshot BEHIND bezel (bezel on top)
+    // Actually, screenshot should be behind the bezel frame
+    // But since the bezel has transparent screen area, order matters:
+    // Screenshot first, then bezel on top
+    const deviceGroup = new Group([clonedImage, bezelImage], {
+      left: centerPoint.x,
+      top: centerPoint.y,
+      originX: "center",
+      originY: "center",
+      angle: imageAngle, // Apply the image's rotation to the entire group
+    });
+
+    // Store bezel ID - set both ways for compatibility
+    (deviceGroup as Group & { bezelId?: string }).bezelId = bezel.id;
+
+    return deviceGroup;
+  }, []);
+
   // Add screenshot to canvas - replaces placeholder or existing image if present
   const addScreenshot = useCallback(
     async (url: string) => {
@@ -444,14 +667,17 @@ export function ProjectEditor({
         }
       }
 
+      // Helper to check type (handles both v5 lowercase and v6+ uppercase)
+      const isGroup = (o: { type?: string }) => o.type === "Group" || o.type === "group";
+      const isImage = (o: { type?: string }) => o.type === "Image" || o.type === "image";
+
       // Check for device frame group (any group containing an image)
       const allObjects = canvas.getObjects();
       for (const obj of allObjects) {
-        if (obj.type === "group") {
-          const group = obj as Group & { data?: { deviceMockupId?: string } };
-          const groupData = group.data;
+        if (isGroup(obj)) {
+          const group = obj as Group & { bezelId?: string; deviceMockupId?: string };
           const groupObjects = group.getObjects();
-          const imageInGroup = groupObjects.find((o) => o.type === "image") as FabricImage | undefined;
+          const imageInGroup = groupObjects.find((o) => isImage(o)) as FabricImage | undefined;
 
           if (imageInGroup) {
             try {
@@ -489,12 +715,6 @@ export function ProjectEditor({
                 originY: "center",
               });
 
-              // Get mockup from group data, current state, or fallback to generic
-              const mockupId = groupData?.deviceMockupId;
-              const mockup = mockupId
-                ? getDeviceMockup(mockupId)
-                : (currentMockup || getDeviceMockup("generic"));
-
               // Remove old group
               canvas.remove(group);
 
@@ -503,24 +723,52 @@ export function ProjectEditor({
               canvas.renderAll();
               standaloneImg.setCoords();
 
-              // Re-apply the device frame using existing logic
-              const newGroup = createDeviceFrameGroup(standaloneImg, mockup);
+              // Check if this was a bezel frame or a programmatic mockup frame
+              // Access custom properties directly on the group object
+              const bezelId = group.bezelId;
+              const mockupId = group.deviceMockupId;
 
-              if (!newGroup) {
-                // Fallback: just keep the standalone image
-                console.error("Failed to create device frame group");
-                canvas.setActiveObject(standaloneImg);
-                deviceFrameRef.current = null;
-                setCurrentMockup(null);
+              if (bezelId || currentBezel) {
+                // Re-apply bezel frame
+                const bezel = bezelId ? getBezelById(bezelId) : currentBezel;
+                if (bezel) {
+                  const newGroup = await createDeviceFrameWithBezel(standaloneImg, bezel);
+                  canvas.remove(standaloneImg);
+                  canvas.add(newGroup);
+                  canvas.setActiveObject(newGroup);
+                  deviceFrameRef.current = newGroup;
+                  setCurrentBezel(bezel);
+                  setCurrentMockup(null);
+                } else {
+                  // Fallback: just keep the standalone image
+                  canvas.setActiveObject(standaloneImg);
+                  deviceFrameRef.current = null;
+                  setCurrentBezel(null);
+                }
               } else {
-                // Remove standalone and add group
-                canvas.remove(standaloneImg);
-                canvas.add(newGroup);
-                canvas.setActiveObject(newGroup);
+                // Re-apply programmatic mockup frame
+                const mockup = mockupId
+                  ? getDeviceMockup(mockupId)
+                  : (currentMockup || getDeviceMockup("generic"));
 
-                // Update refs
-                deviceFrameRef.current = newGroup;
-                setCurrentMockup(mockup);
+                const newGroup = createDeviceFrameGroup(standaloneImg, mockup);
+
+                if (!newGroup) {
+                  // Fallback: just keep the standalone image
+                  console.error("Failed to create device frame group");
+                  canvas.setActiveObject(standaloneImg);
+                  deviceFrameRef.current = null;
+                  setCurrentMockup(null);
+                } else {
+                  // Remove standalone and add group
+                  canvas.remove(standaloneImg);
+                  canvas.add(newGroup);
+                  canvas.setActiveObject(newGroup);
+
+                  // Update refs
+                  deviceFrameRef.current = newGroup;
+                  setCurrentMockup(mockup);
+                }
               }
 
               canvas.renderAll();
@@ -537,7 +785,7 @@ export function ProjectEditor({
       }
 
       // Check for any existing standalone image to replace (non-placeholder)
-      const existingImages = canvas.getObjects().filter((obj) => obj.type === "image") as FabricImage[];
+      const existingImages = canvas.getObjects().filter((obj) => isImage(obj)) as FabricImage[];
 
       if (existingImages.length > 0) {
         // Replace the first existing image, scaling to match its displayed size
@@ -632,7 +880,7 @@ export function ProjectEditor({
         toast.error("Failed to load screenshot");
       }
     },
-    []
+    [currentBezel, currentMockup, createDeviceFrameWithBezel, createDeviceFrameGroup]
   );
 
   // Convert file to data URL for persistence
@@ -746,7 +994,7 @@ export function ProjectEditor({
       const canvas = fabricRef.current;
       const activeObject = canvas.getActiveObject();
 
-      if (activeObject && (activeObject.type === "text" || activeObject.type === "textbox" || activeObject.type === "i-text")) {
+      if (activeObject && (activeObject.type === "Text" || activeObject.type === "Textbox" || activeObject.type === "IText")) {
         const textObj = activeObject as FabricText;
 
         if (style.fontSize !== undefined) {
@@ -780,7 +1028,7 @@ export function ProjectEditor({
     const canvas = fabricRef.current;
     const activeObject = canvas.getActiveObject();
 
-    if (!activeObject || activeObject.type !== "image") {
+    if (!activeObject || activeObject.type !== "Image") {
       toast.error("Please select an image first");
       return;
     }
@@ -846,30 +1094,34 @@ export function ProjectEditor({
     }
   }, [isRemovingBackground, removeBackgroundFromImage, markDirty]);
 
-  // Helper function to detect device frame group on canvas and return mockup
-  const detectDeviceFrameOnCanvas = useCallback((canvas: Canvas): DeviceMockup | null => {
+  // Helper function to detect device frame group on canvas and return mockup or bezel
+  const detectDeviceFrameOnCanvas = useCallback((canvas: Canvas): { mockup: DeviceMockup | null; bezel: BezelConfig | null } => {
     const objects = canvas.getObjects();
 
     for (const obj of objects) {
-      if (obj.type === "group") {
-        const group = obj as Group & { data?: { deviceMockupId?: string } };
-        const groupData = group.data;
+      if (obj.type === "Group") {
+        const group = obj as Group & { bezelId?: string; deviceMockupId?: string };
         const groupObjects = group.getObjects();
-        const hasImage = groupObjects.some((o) => o.type === "image");
+        const hasImage = groupObjects.some((o) => o.type === "Image");
 
-        if (hasImage && groupData?.deviceMockupId) {
+        if (hasImage && group.bezelId) {
+          // Found a bezel frame group
+          deviceFrameRef.current = group;
+          const bezel = getBezelById(group.bezelId);
+          return { mockup: null, bezel: bezel || null };
+        } else if (hasImage && group.deviceMockupId) {
           // Found a device frame group with stored mockup ID
           deviceFrameRef.current = group;
-          return getDeviceMockup(groupData.deviceMockupId);
+          return { mockup: getDeviceMockup(group.deviceMockupId), bezel: null };
         } else if (hasImage) {
           // Found a device frame group but no stored ID - use default
           deviceFrameRef.current = group;
-          return getDeviceMockup("generic");
+          return { mockup: getDeviceMockup("generic"), bezel: null };
         }
       }
     }
 
-    return null;
+    return { mockup: null, bezel: null };
   }, []);
 
   // Helper function to remove device frame from a canvas and restore the image
@@ -879,10 +1131,10 @@ export function ProjectEditor({
     let frameRemoved = false;
 
     for (const obj of objects) {
-      if (obj.type === "group") {
+      if (obj.type === "Group") {
         const group = obj as Group;
         const groupObjects = group.getObjects();
-        const imageInGroup = groupObjects.find((o) => o.type === "image") as FabricImage | undefined;
+        const imageInGroup = groupObjects.find((o) => o.type === "Image") as FabricImage | undefined;
 
         if (imageInGroup) {
           const groupCenter = group.getCenterPoint();
@@ -922,7 +1174,7 @@ export function ProjectEditor({
 
     if (removed) {
       // Set active object to the restored image
-      const images = canvas.getObjects().filter((obj) => obj.type === "image");
+      const images = canvas.getObjects().filter((obj) => obj.type === "Image");
       if (images.length > 0) {
         canvas.setActiveObject(images[0]);
       }
@@ -979,124 +1231,146 @@ export function ProjectEditor({
 
     setPreviews(updatedPreviews);
     setCurrentMockup(null);
+    setCurrentBezel(null);
     canvas.renderAll();
     markAllDirty();
   }, [markAllDirty, removeDeviceFrameFromCanvas, previews, activePreview, canvasWidth, canvasHeight]);
 
-  // Helper function to create a device frame group for an image
-  const createDeviceFrameGroup = useCallback((image: FabricImage, mockup: DeviceMockup): Group => {
-    // Get image dimensions (without rotation affecting them)
-    const imgWidth = (image.width || 0) * (image.scaleX || 1);
-    const imgHeight = (image.height || 0) * (image.scaleY || 1);
+  // Apply SVG bezel to the current canvas
+  const applyBezelToCanvas = useCallback(async (canvas: Canvas, bezel: BezelConfig): Promise<Group | null> => {
+    const objects = canvas.getObjects();
+    let image: FabricImage | null = null;
+    let existingGroup: Group | null = null;
 
-    // Get the image's rotation angle
-    const imageAngle = image.angle || 0;
+    // Helper to check type (handles both v5 lowercase and v6+ uppercase)
+    const isGroup = (obj: { type?: string }) => obj.type === "Group" || obj.type === "group";
+    const isImage = (obj: { type?: string }) => obj.type === "Image" || obj.type === "image";
 
-    // Get the center point of the image
-    const centerPoint = image.getCenterPoint();
+    // First, check for existing device frame group (contains an image)
+    for (const obj of objects) {
+      if (isGroup(obj)) {
+        const group = obj as Group;
+        const groupObjects = group.getObjects();
+        const imageInGroup = groupObjects.find((o) => isImage(o)) as FabricImage | undefined;
 
-    // Scale bezel based on image size (base size is for ~400px width)
-    const scaleFactor = imgWidth / 400;
-    const bezel = {
-      top: mockup.bezel.top * scaleFactor,
-      bottom: mockup.bezel.bottom * scaleFactor,
-      left: mockup.bezel.left * scaleFactor,
-      right: mockup.bezel.right * scaleFactor,
-    };
-    const cornerRadius = mockup.cornerRadius * scaleFactor;
+        if (imageInGroup) {
+          existingGroup = group;
+          // Extract image from group
+          const groupCenter = group.getCenterPoint();
+          const groupAngle = group.angle || 0;
+          const groupScaleX = group.scaleX || 1;
+          const groupScaleY = group.scaleY || 1;
 
-    // Calculate frame dimensions
-    const frameWidth = imgWidth + bezel.left + bezel.right;
-    const frameHeight = imgHeight + bezel.top + bezel.bottom;
+          // Create standalone image with group transforms
+          image = new FabricImage(imageInGroup.getElement(), {
+            scaleX: (imageInGroup.scaleX || 1) * groupScaleX,
+            scaleY: (imageInGroup.scaleY || 1) * groupScaleY,
+            originX: "center",
+            originY: "center",
+            left: groupCenter.x,
+            top: groupCenter.y,
+            angle: groupAngle,
+          });
 
-    // Create device frame (bezel) - position relative to group center
-    const frame = new Rect({
-      left: -frameWidth / 2,
-      top: -frameHeight / 2,
-      width: frameWidth,
-      height: frameHeight,
-      fill: mockup.frameColor,
-      rx: cornerRadius,
-      ry: cornerRadius,
-      originX: "left",
-      originY: "top",
-      strokeWidth: 1,
-      stroke: "#333333",
-      shadow: new Shadow({
-        color: "rgba(0,0,0,0.5)",
-        blur: 25 * scaleFactor,
-        offsetX: 0,
-        offsetY: 8 * scaleFactor,
-      }),
-    });
-
-    // Clone the image for the group (positioned relative to group center, without rotation)
-    const clonedImage = new FabricImage(image.getElement(), {
-      left: -imgWidth / 2 + (bezel.left - bezel.right) / 2,
-      top: -imgHeight / 2 + (bezel.top - bezel.bottom) / 2,
-      scaleX: image.scaleX,
-      scaleY: image.scaleY,
-      originX: "left",
-      originY: "top",
-      angle: 0, // Reset angle - the group will handle rotation
-    });
-
-    // Build group objects array
-    const groupObjects: (Rect | FabricImage)[] = [frame, clonedImage];
-
-    // Add Dynamic Island if applicable
-    if (mockup.hasDynamicIsland) {
-      const islandWidth = 95 * scaleFactor;
-      const islandHeight = 28 * scaleFactor;
-
-      const island = new Rect({
-        left: -islandWidth / 2 + (bezel.left - bezel.right) / 2,
-        top: -imgHeight / 2 + (8 * scaleFactor) + (bezel.top - bezel.bottom) / 2,
-        width: islandWidth,
-        height: islandHeight,
-        fill: "#000000",
-        rx: islandHeight / 2,
-        ry: islandHeight / 2,
-        originX: "left",
-        originY: "top",
-      });
-      groupObjects.push(island);
+          // Remove the existing group
+          canvas.remove(group);
+          break;
+        }
+      }
     }
 
-    // Add notch if applicable
-    if (mockup.hasNotch) {
-      const notchWidth = 150 * scaleFactor;
-      const notchHeight = 30 * scaleFactor;
-
-      const notch = new Rect({
-        left: -notchWidth / 2 + (bezel.left - bezel.right) / 2,
-        top: -imgHeight / 2 + (bezel.top - bezel.bottom) / 2,
-        width: notchWidth,
-        height: notchHeight,
-        fill: "#000000",
-        rx: 0,
-        ry: 0,
-        originX: "left",
-        originY: "top",
-      });
-      groupObjects.push(notch);
+    // If no group found, look for standalone image
+    if (!image) {
+      for (const obj of objects) {
+        if (isImage(obj)) {
+          image = obj as FabricImage;
+          break;
+        }
+      }
     }
 
-    // Create the group with the image's rotation
-    const deviceGroup = new Group(groupObjects, {
-      left: centerPoint.x,
-      top: centerPoint.y,
-      originX: "center",
-      originY: "center",
-      angle: imageAngle, // Apply the image's rotation to the entire group
-    });
+    if (!image) return null;
 
-    // Store mockup ID in data property so it survives serialization
-    // Using set() to ensure it's properly stored
-    deviceGroup.set("data", { deviceMockupId: mockup.id });
+    // Create the device frame group with bezel
+    const deviceGroup = await createDeviceFrameWithBezel(image, bezel);
+
+    // Remove original standalone image (if not from group) and add the group
+    if (!existingGroup) {
+      canvas.remove(image);
+    }
+    canvas.add(deviceGroup);
 
     return deviceGroup;
-  }, []);
+  }, [createDeviceFrameWithBezel]);
+
+  // Apply SVG bezel to all previews
+  const applyBezel = useCallback(async (bezel: BezelConfig) => {
+    if (!fabricRef.current) return;
+
+    const canvas = fabricRef.current;
+
+    // Apply to current canvas
+    const currentGroup = await applyBezelToCanvas(canvas, bezel);
+
+    if (!currentGroup) {
+      toast.error("Add a screenshot first to add a device frame");
+      return;
+    }
+
+    canvas.setActiveObject(currentGroup);
+    deviceFrameRef.current = currentGroup;
+
+    // Save current canvas state
+    const currentCanvasJson = canvas.toJSON();
+
+    // Apply to all other previews
+    const updatedPreviews = await Promise.all(
+      previews.map(async (preview) => {
+        if (preview.id === activePreview?.id) {
+          return {
+            ...preview,
+            canvasJson: currentCanvasJson,
+          };
+        }
+
+        // For other previews, load their canvas, apply bezel, and save
+        if (preview.canvasJson) {
+          const offscreenEl = document.createElement("canvas");
+          offscreenEl.width = canvasWidth;
+          offscreenEl.height = canvasHeight;
+          const tempCanvas = new Canvas(offscreenEl, {
+            width: canvasWidth,
+            height: canvasHeight,
+          });
+
+          try {
+            await tempCanvas.loadFromJSON(preview.canvasJson);
+            const group = await applyBezelToCanvas(tempCanvas, bezel);
+
+            if (group) {
+              const updatedJson = tempCanvas.toJSON();
+              tempCanvas.dispose();
+              return {
+                ...preview,
+                canvasJson: updatedJson,
+              };
+            }
+          } catch (error) {
+            console.error("Error applying bezel to preview:", error);
+          }
+          tempCanvas.dispose();
+        }
+
+        return preview;
+      })
+    );
+
+    setPreviews(updatedPreviews);
+    setCurrentBezel(bezel);
+    setCurrentMockup(null); // Clear programmatic mockup when using bezel
+    canvas.renderAll();
+    toast.success("Device bezel applied to all previews");
+  }, [applyBezelToCanvas, previews, activePreview, canvasWidth, canvasHeight]);
 
   // Apply device mockup to the current canvas
   const applyDeviceMockupToCanvas = useCallback((canvas: Canvas, mockup: DeviceMockup): Group | null => {
@@ -1104,12 +1378,16 @@ export function ProjectEditor({
     let image: FabricImage | null = null;
     let existingGroup: Group | null = null;
 
+    // Helper to check type (handles both v5 lowercase and v6+ uppercase)
+    const isGroup = (obj: { type?: string }) => obj.type === "Group" || obj.type === "group";
+    const isImage = (obj: { type?: string }) => obj.type === "Image" || obj.type === "image";
+
     // First, check for existing device frame group (contains an image)
     for (const obj of objects) {
-      if (obj.type === "group") {
+      if (isGroup(obj)) {
         const group = obj as Group;
         const groupObjects = group.getObjects();
-        const imageInGroup = groupObjects.find((o) => o.type === "image") as FabricImage | undefined;
+        const imageInGroup = groupObjects.find((o) => isImage(o)) as FabricImage | undefined;
 
         if (imageInGroup) {
           existingGroup = group;
@@ -1129,7 +1407,7 @@ export function ProjectEditor({
           });
           break;
         }
-      } else if (obj.type === "image") {
+      } else if (isImage(obj)) {
         image = obj as FabricImage;
         break;
       }
@@ -1227,6 +1505,7 @@ export function ProjectEditor({
 
     setPreviews(updatedPreviews);
     setCurrentMockup(mockup);
+    setCurrentBezel(null); // Clear bezel when applying programmatic mockup
     canvas.renderAll();
     markAllDirty();
     toast.success(`${mockup.name} frame applied to all previews`);
@@ -1408,7 +1687,7 @@ export function ProjectEditor({
     const updatedObjects = await Promise.all(
       objects.map(async (obj, index) => {
         // Check if it's an image with base64 src
-        if (obj.type === "image" && typeof obj.src === "string" && obj.src.startsWith("data:")) {
+        if (obj.type === "Image" && typeof obj.src === "string" && obj.src.startsWith("data:")) {
           try {
             const blob = dataUrlToBlob(obj.src);
             const result = await uploadToCloudinary(blob, userId, projectId, index);
@@ -1547,10 +1826,20 @@ export function ProjectEditor({
 
       // Detect existing device frame and restore state
       if (hasObjects) {
-        const detectedMockup = detectDeviceFrameOnCanvas(canvas);
-        setCurrentMockup(detectedMockup);
+        const { mockup, bezel } = detectDeviceFrameOnCanvas(canvas);
+        if (bezel) {
+          setCurrentBezel(bezel);
+          setCurrentMockup(null);
+        } else if (mockup) {
+          setCurrentMockup(mockup);
+          setCurrentBezel(null);
+        } else {
+          setCurrentMockup(null);
+          setCurrentBezel(null);
+        }
       } else {
         setCurrentMockup(null);
+        setCurrentBezel(null);
         deviceFrameRef.current = null;
       }
 
@@ -1986,6 +2275,8 @@ export function ProjectEditor({
               onApplyDeviceFrame={applyDeviceMockup}
               onRemoveDeviceFrame={removeDeviceFrame}
               hasScreenshot={hasScreenshot}
+              currentBezel={currentBezel}
+              onApplyBezel={applyBezel}
             />
           )}
         </div>

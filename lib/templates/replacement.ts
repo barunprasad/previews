@@ -6,12 +6,15 @@ type FabricImageWithData = FabricImage & {
   data?: PlaceholderData;
 };
 
+// Helper to check image type (handles both v5 lowercase and v6+ uppercase)
+const isImageType = (type?: string) => type === "Image" || type === "image";
+
 /**
  * Find all replaceable (placeholder) objects in a canvas
  */
 export function findReplaceableObjects(canvas: Canvas): FabricImageWithData[] {
   return canvas.getObjects().filter((obj) => {
-    if (obj.type !== "image") return false;
+    if (!isImageType(obj.type)) return false;
     const imgObj = obj as FabricImageWithData;
     return imgObj.data?.isPlaceholder === true;
   }) as FabricImageWithData[];
@@ -23,7 +26,7 @@ export function findReplaceableObjects(canvas: Canvas): FabricImageWithData[] {
 export function isPlaceholderObject(obj: unknown): boolean {
   if (!obj || typeof obj !== "object") return false;
   const fabricObj = obj as { type?: string; data?: PlaceholderData };
-  if (fabricObj.type !== "image") return false;
+  if (!isImageType(fabricObj.type)) return false;
   return fabricObj.data?.isPlaceholder === true;
 }
 

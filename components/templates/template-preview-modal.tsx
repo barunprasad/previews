@@ -49,7 +49,7 @@ function TemplatePreviewContent({ template }: { template: PreviewTemplate }) {
   return (
     <div className="relative h-full w-full overflow-hidden">
       {objects.map((obj, idx) => {
-        if (obj.type === "textbox" && obj.text) {
+        if ((obj.type === "Textbox" || obj.type === "textbox") && obj.text) {
           // Calculate position
           let left = (obj.left || 0) * scale;
           const top = (obj.top || 0) * scale;
@@ -82,7 +82,7 @@ function TemplatePreviewContent({ template }: { template: PreviewTemplate }) {
           );
         }
 
-        if (obj.type === "image") {
+        if (obj.type === "Image" || obj.type === "image") {
           // Calculate position for image placeholder
           let left = (obj.left || 0) * scale;
           let top = (obj.top || 0) * scale;

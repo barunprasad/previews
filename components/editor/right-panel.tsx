@@ -24,6 +24,7 @@ import { TemplatesSection } from "./panels/templates-section";
 import { DeviceFrameSection } from "./panels/device-frame-section";
 import type { DeviceFrame, PreviewTemplate } from "@/types";
 import type { DeviceMockup } from "@/lib/devices/frames";
+import type { BezelConfig } from "@/lib/devices/bezels";
 import type { BackgroundRemovalProgress } from "@/lib/image-processing/background-removal";
 
 interface RightPanelProps {
@@ -66,6 +67,10 @@ interface RightPanelProps {
   onApplyDeviceFrame: (mockup: DeviceMockup) => void;
   onRemoveDeviceFrame: () => void;
   hasScreenshot: boolean;
+
+  // Bezel props
+  currentBezel?: BezelConfig | null;
+  onApplyBezel?: (bezel: BezelConfig) => void;
 }
 
 export function RightPanel({
@@ -88,6 +93,8 @@ export function RightPanel({
   onApplyDeviceFrame,
   onRemoveDeviceFrame,
   hasScreenshot,
+  currentBezel,
+  onApplyBezel,
 }: RightPanelProps) {
   return (
     <aside className="hidden w-80 shrink-0 border-l bg-muted/30 lg:block overflow-y-auto">
@@ -120,9 +127,9 @@ export function RightPanel({
             <div className="flex items-center gap-2">
               <Frame className="h-4 w-4" />
               <span className="text-sm font-medium">Device Frame</span>
-              {currentDeviceMockup && (
+              {(currentDeviceMockup || currentBezel) && (
                 <span className="ml-auto text-xs text-muted-foreground">
-                  {currentDeviceMockup.name}
+                  {currentBezel ? `${currentBezel.name}` : currentDeviceMockup?.name}
                 </span>
               )}
             </div>
@@ -133,6 +140,8 @@ export function RightPanel({
               onApplyFrame={onApplyDeviceFrame}
               onRemoveFrame={onRemoveDeviceFrame}
               hasScreenshot={hasScreenshot}
+              currentBezel={currentBezel}
+              onApplyBezel={onApplyBezel}
             />
           </AccordionContent>
         </AccordionItem>

@@ -33,7 +33,7 @@ function MiniTemplatePreview({ template, cardWidth }: { template: PreviewTemplat
   return (
     <div className="relative h-full w-full overflow-hidden">
       {objects.slice(0, 4).map((obj, idx) => {
-        if (obj.type === "textbox" && obj.text) {
+        if ((obj.type === "Textbox" || obj.type === "textbox") && obj.text) {
           let left = (obj.left || 0) * scale;
           const top = (obj.top || 0) * scale;
           const width = (obj.width || 200) * scale;
@@ -66,7 +66,7 @@ function MiniTemplatePreview({ template, cardWidth }: { template: PreviewTemplat
           );
         }
 
-        if (obj.type === "image") {
+        if (obj.type === "Image" || obj.type === "image") {
           let left = (obj.left || 0) * scale;
           let top = (obj.top || 0) * scale;
           const imgScale = obj.scaleX || 0.5;

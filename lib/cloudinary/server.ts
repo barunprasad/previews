@@ -84,7 +84,7 @@ export async function deleteCloudinaryImagesFromCanvas(
   if (!objects) return;
 
   const deletePromises = objects
-    .filter((obj) => obj.type === "image" && typeof obj.src === "string")
+    .filter((obj) => (obj.type === "Image" || obj.type === "image") && typeof obj.src === "string")
     .map((obj) => {
       const publicId = extractPublicId(obj.src as string);
       if (publicId) {
