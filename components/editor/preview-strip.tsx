@@ -217,18 +217,18 @@ export function PreviewStrip({
           >
             {/* Active glow effect */}
             {isActive && (
-              <div className="absolute -inset-1 rounded-lg bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 opacity-50 blur-sm" />
+              <div className="absolute -inset-1 rounded-sm bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 opacity-50 blur-sm" />
             )}
 
             {/* Hover glow effect */}
             {isHovered && !isActive && (
-              <div className="absolute -inset-0.5 rounded-lg bg-orange-500/20 blur-sm transition-opacity" />
+              <div className="absolute -inset-0.5 rounded-sm bg-orange-500/20 blur-sm transition-opacity" />
             )}
 
             <button
               onClick={() => onPreviewSelect(preview)}
               className={cn(
-                "relative h-16 w-12 overflow-hidden rounded-lg transition-all duration-200",
+                "relative h-16 w-12 overflow-hidden rounded-sm transition-all duration-200",
                 isActive
                   ? "ring-2 ring-orange-500 shadow-lg shadow-orange-500/25"
                   : "ring-1 ring-border/50 hover:ring-orange-500/50 hover:shadow-md",
@@ -266,7 +266,7 @@ export function PreviewStrip({
 
               {/* Loading overlay */}
               {isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-lg">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-sm">
                   <Loader2 className="h-4 w-4 animate-spin text-orange-400" />
                 </div>
               )}
@@ -337,7 +337,7 @@ export function PreviewStrip({
               variant="outline"
               size="icon"
               className={cn(
-                "h-16 w-12 shrink-0 rounded-lg border-2 border-dashed transition-all duration-200",
+                "h-16 w-12 shrink-0 rounded-sm border-2 border-dashed transition-all duration-200",
                 "border-muted-foreground/30 hover:border-orange-500/50 hover:bg-orange-500/5",
                 "group/add"
               )}

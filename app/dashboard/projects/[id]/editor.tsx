@@ -299,6 +299,8 @@ export function ProjectEditor({
     // Load existing canvas data from active preview
     const firstPreview = initialPreviews[0];
     if (firstPreview?.canvasJson) {
+      // Prevent marking as dirty during initial load
+      isLoadingPreviewRef.current = true;
       canvas.loadFromJSON(firstPreview.canvasJson).then(() => {
         // Check if canvas was disposed during async load
         if (isDisposed) return;
@@ -327,7 +329,11 @@ export function ProjectEditor({
         canvas.renderAll();
         // Initialize history after loading
         initHistory(canvas, firstPreview.background || "#0a0a0a");
+        // Reset loading flag after initial load is complete
+        isLoadingPreviewRef.current = false;
       }).catch((err) => {
+        // Reset loading flag on error
+        isLoadingPreviewRef.current = false;
         // Ignore errors if canvas was disposed
         if (!isDisposed) {
           console.error("Error loading canvas:", err);
@@ -1795,6 +1801,11 @@ export function ProjectEditor({
         setActivePreview(firstPreview);
 
         const canvas = fabricRef.current;
+
+        // Prevent marking as dirty during template set loading
+        // (previews were just created with this data)
+        isLoadingPreviewRef.current = true;
+
         canvas.clear();
 
         if (firstPreview.canvasJson) {
@@ -1810,6 +1821,9 @@ export function ProjectEditor({
 
         canvas.renderAll();
         initHistory(canvas, newBg);
+
+        // Reset loading flag
+        isLoadingPreviewRef.current = false;
       }
 
       // Clear dirty state since we just created fresh
@@ -2426,7 +2440,7 @@ export function ProjectEditor({
                 {/* Empty state overlay - enhanced with gradient and animation */}
                 {!hasScreenshot && isCanvasReady && (
                   <div
-                    className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-6 transition-all duration-300 group/empty"
+                    className="absolute inset-0 flex cursor-pointer items-center justify-center transition-all duration-300 group/empty"
                     style={{
                       background: `
                         linear-gradient(135deg, rgba(10, 10, 10, 0.95) 0%, rgba(20, 20, 30, 0.95) 100%)
@@ -2434,35 +2448,43 @@ export function ProjectEditor({
                     }}
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    {/* Animated background glow */}
-                    <div className="absolute inset-0 overflow-hidden">
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-orange-500/10 rounded-full blur-[100px] group-hover/empty:scale-110 transition-transform duration-700" />
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] bg-amber-500/10 rounded-full blur-[80px] group-hover/empty:scale-125 transition-transform duration-500" />
-                    </div>
-
-                    {/* Upload icon with animated border */}
-                    <div className="relative">
-                      <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 opacity-50 blur group-hover/empty:opacity-75 transition-opacity" />
-                      <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-neutral-800 to-neutral-900 border border-white/10">
-                        <Upload className="h-10 w-10 text-orange-400 group-hover/empty:scale-110 transition-transform" />
+                    {/* Content wrapper with inverse zoom to maintain readable size */}
+                    <div
+                      className="flex flex-col items-center justify-center gap-6 px-12 py-10 rounded-3xl bg-white/5 backdrop-blur-sm border border-white/10 shadow-2xl"
+                      style={{
+                        transform: `scale(${1 / zoom})`,
+                      }}
+                    >
+                      {/* Animated background glow */}
+                      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-orange-500/10 rounded-full blur-[100px] group-hover/empty:scale-110 transition-transform duration-700" />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] bg-amber-500/10 rounded-full blur-[80px] group-hover/empty:scale-125 transition-transform duration-500" />
                       </div>
-                    </div>
 
-                    <div className="relative text-center">
-                      <p className="text-xl font-semibold text-white mb-1">Drop screenshot here</p>
-                      <p className="text-sm text-neutral-400">
-                        or <span className="text-orange-400 group-hover/empty:text-orange-300 transition-colors">click to browse</span>
-                      </p>
-                    </div>
+                      {/* Upload icon with animated border */}
+                      <div className="relative">
+                        <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 opacity-50 blur group-hover/empty:opacity-75 transition-opacity" />
+                        <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-neutral-800 to-neutral-900 border border-white/10">
+                          <Upload className="h-10 w-10 text-orange-400 group-hover/empty:scale-110 transition-transform" />
+                        </div>
+                      </div>
 
-                    {/* Hint badges */}
-                    <div className="relative flex gap-2 mt-2">
-                      <span className="px-3 py-1 text-xs rounded-full bg-white/5 text-neutral-400 border border-white/10">
-                        PNG, JPG
-                      </span>
-                      <span className="px-3 py-1 text-xs rounded-full bg-white/5 text-neutral-400 border border-white/10">
-                        Drag & Drop
-                      </span>
+                      <div className="relative text-center">
+                        <p className="text-xl font-semibold text-white mb-1">Drop screenshot here</p>
+                        <p className="text-sm text-neutral-400">
+                          or <span className="text-orange-400 group-hover/empty:text-orange-300 transition-colors">click to browse</span>
+                        </p>
+                      </div>
+
+                      {/* Hint badges */}
+                      <div className="relative flex gap-2 mt-2">
+                        <span className="px-3 py-1 text-xs rounded-full bg-white/5 text-neutral-400 border border-white/10">
+                          PNG, JPG
+                        </span>
+                        <span className="px-3 py-1 text-xs rounded-full bg-white/5 text-neutral-400 border border-white/10">
+                          Drag & Drop
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -2473,7 +2495,11 @@ export function ProjectEditor({
                     {/* Animated dashed border */}
                     <div className="absolute inset-4 rounded-2xl border-2 border-dashed border-orange-500/50" />
 
-                    <div className="flex flex-col items-center gap-3">
+                    {/* Content with inverse zoom */}
+                    <div
+                      className="flex flex-col items-center gap-3"
+                      style={{ transform: `scale(${1 / zoom})` }}
+                    >
                       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-orange-500/20 backdrop-blur-sm">
                         <Upload className="h-8 w-8 text-orange-400" />
                       </div>
@@ -2485,7 +2511,9 @@ export function ProjectEditor({
                 {/* Loading state */}
                 {!isCanvasReady && (
                   <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
-                    <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+                    <div style={{ transform: `scale(${1 / zoom})` }}>
+                      <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+                    </div>
                   </div>
                 )}
               </div>
