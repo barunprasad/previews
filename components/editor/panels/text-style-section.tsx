@@ -1,6 +1,7 @@
 "use client";
 
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -24,6 +25,7 @@ const TEXT_COLORS = [
 ];
 
 export interface SelectedTextStyle {
+  text: string;
   fontSize: number;
   fontWeight: string;
   fill: string;
@@ -38,8 +40,19 @@ export function TextStyleSection({ style, onStyleChange }: TextStyleSectionProps
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
-        Editing selected text element
+        Editing selected text element. Double-click text on canvas for inline editing.
       </p>
+
+      {/* Text Content */}
+      <div className="space-y-2">
+        <Label className="text-xs font-medium">Text Content</Label>
+        <Textarea
+          value={style.text}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onStyleChange({ text: e.target.value })}
+          placeholder="Enter your text"
+          className="min-h-[80px] resize-none"
+        />
+      </div>
 
       {/* Size and Weight */}
       <div className="grid grid-cols-2 gap-3">

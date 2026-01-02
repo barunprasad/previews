@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ArrowLeft, Upload, Loader2, Trash2, Save, Download, Undo2, Redo2, MoreHorizontal, ZoomIn, ZoomOut, Maximize, PanelRight, Package, ChevronDown, Smartphone, Eye } from "lucide-react";
-import { Canvas, FabricImage, FabricText, Gradient, Rect, Group, Shadow } from "fabric";
+import { Canvas, FabricImage, FabricText, IText, Gradient, Rect, Group, Shadow } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ExportDialog } from "@/components/editor/export-dialog";
@@ -98,6 +98,7 @@ export function ProjectEditor({
 
   // Selected text style for the right panel
   const [selectedTextStyle, setSelectedTextStyle] = useState<{
+    text: string;
     fontSize: number;
     fontWeight: string;
     fill: string;
@@ -177,15 +178,16 @@ export function ProjectEditor({
     // Selection event handlers for text styling
     const handleSelection = () => {
       const activeObject = canvas.getActiveObject();
-      if (activeObject && (activeObject.type === "Text" || activeObject.type === "Textbox" || activeObject.type === "IText")) {
+      if (activeObject && (activeObject.type === "Text" || activeObject.type === "Textbox" || activeObject.type === "IText" || activeObject.type === "text" || activeObject.type === "textbox" || activeObject.type === "i-text")) {
         const textObj = activeObject as FabricText;
         setSelectedTextStyle({
+          text: textObj.text || "",
           fontSize: textObj.fontSize || 48,
           fontWeight: String(textObj.fontWeight || "normal"),
           fill: String(textObj.fill || "#ffffff"),
         });
         setHasSelectedImage(false);
-      } else if (activeObject && activeObject.type === "Image") {
+      } else if (activeObject && (activeObject.type === "Image" || activeObject.type === "image")) {
         setSelectedTextStyle(null);
         setHasSelectedImage(true);
       } else {
@@ -202,6 +204,23 @@ export function ProjectEditor({
     canvas.on("selection:created", handleSelection);
     canvas.on("selection:updated", handleSelection);
     canvas.on("selection:cleared", handleSelectionCleared);
+
+    // Double-click handler for inline text editing
+    const handleDoubleClick = () => {
+      const activeObject = canvas.getActiveObject();
+      const isTextType = (type?: string) =>
+        type === "Text" || type === "Textbox" || type === "IText" ||
+        type === "text" || type === "textbox" || type === "i-text";
+
+      if (activeObject && isTextType(activeObject.type)) {
+        const textObj = activeObject as IText;
+        // Enter editing mode
+        textObj.enterEditing();
+        textObj.selectAll();
+        canvas.renderAll();
+      }
+    };
+    canvas.on("mouse:dblclick", handleDoubleClick);
 
     // Helper to apply background - inline because we can't use hooks in callback
     const applyBg = (c: Canvas, bg: string) => {
@@ -292,6 +311,7 @@ export function ProjectEditor({
       canvas.off("selection:created", handleSelection);
       canvas.off("selection:updated", handleSelection);
       canvas.off("selection:cleared", handleSelectionCleared);
+      canvas.off("mouse:dblclick", handleDoubleClick);
       canvas.dispose();
       fabricRef.current = null;
     };
@@ -990,15 +1010,23 @@ export function ProjectEditor({
 
   // Handle text style changes for selected text
   const handleTextStyleChange = useCallback(
-    (style: Partial<{ fontSize: number; fontWeight: string; fill: string }>) => {
+    (style: Partial<{ text: string; fontSize: number; fontWeight: string; fill: string }>) => {
       if (!fabricRef.current) return;
 
       const canvas = fabricRef.current;
       const activeObject = canvas.getActiveObject();
 
-      if (activeObject && (activeObject.type === "Text" || activeObject.type === "Textbox" || activeObject.type === "IText")) {
+      // Helper to check text types (v5 lowercase and v6+ uppercase)
+      const isTextType = (type?: string) =>
+        type === "Text" || type === "Textbox" || type === "IText" ||
+        type === "text" || type === "textbox" || type === "i-text";
+
+      if (activeObject && isTextType(activeObject.type)) {
         const textObj = activeObject as FabricText;
 
+        if (style.text !== undefined) {
+          textObj.set("text", style.text);
+        }
         if (style.fontSize !== undefined) {
           textObj.set("fontSize", style.fontSize);
         }
@@ -1014,6 +1042,7 @@ export function ProjectEditor({
 
         // Update local state to reflect changes
         setSelectedTextStyle({
+          text: textObj.text || "",
           fontSize: textObj.fontSize || 48,
           fontWeight: String(textObj.fontWeight || "normal"),
           fill: String(textObj.fill || "#ffffff"),
