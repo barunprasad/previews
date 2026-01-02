@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -43,9 +43,11 @@ interface TextSectionProps {
     fontWeight: string;
     fill: string;
   }) => void;
+  recentColors?: string[];
+  onColorUsed?: (color: string) => void;
 }
 
-export function TextSection({ onAddText }: TextSectionProps) {
+export function TextSection({ onAddText, recentColors = [], onColorUsed }: TextSectionProps) {
   const [text, setText] = useState("Your text here");
   const [fontSize, setFontSize] = useState(48);
   const [fontWeight, setFontWeight] = useState("600");
@@ -61,12 +63,19 @@ export function TextSection({ onAddText }: TextSectionProps) {
       fill: textColor,
     });
 
+    // Record color usage
+    onColorUsed?.(textColor);
+
     setText("Your text here");
   };
 
   const handlePresetClick = (preset: (typeof TEXT_PRESETS)[0]) => {
     setFontSize(preset.fontSize);
     setFontWeight(preset.fontWeight);
+  };
+
+  const handleColorSelect = (color: string) => {
+    setTextColor(color);
   };
 
   return (
@@ -146,6 +155,32 @@ export function TextSection({ onAddText }: TextSectionProps) {
       {/* Color */}
       <div className="space-y-2">
         <Label className="text-xs font-medium">Color</Label>
+
+        {/* Recent Colors */}
+        {recentColors.length > 0 && (
+          <div className="space-y-1.5">
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <Clock className="h-2.5 w-2.5" />
+              Recent
+            </span>
+            <div className="flex gap-1.5">
+              {recentColors.slice(0, 6).map((color, index) => (
+                <button
+                  key={`${color}-${index}`}
+                  className={cn(
+                    "h-5 w-5 rounded-md border transition-transform hover:scale-110 shrink-0",
+                    textColor.toLowerCase() === color.toLowerCase() && "ring-2 ring-primary ring-offset-1"
+                  )}
+                  style={{ backgroundColor: color }}
+                  onClick={() => handleColorSelect(color)}
+                  title={color}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Preset Colors */}
         <div className="grid grid-cols-5 gap-1.5">
           {TEXT_COLORS.map((color) => (
             <button
@@ -155,10 +190,32 @@ export function TextSection({ onAddText }: TextSectionProps) {
                 textColor === color.value && "ring-2 ring-primary ring-offset-2"
               )}
               style={{ backgroundColor: color.value }}
-              onClick={() => setTextColor(color.value)}
+              onClick={() => handleColorSelect(color.value)}
               title={color.name}
             />
           ))}
+        </div>
+
+        {/* Custom color picker */}
+        <div className="flex items-center gap-2 pt-1">
+          <input
+            type="color"
+            value={textColor}
+            onChange={(e) => handleColorSelect(e.target.value)}
+            className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:rounded [&::-webkit-color-swatch]:border-0"
+          />
+          <input
+            type="text"
+            value={textColor}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (/^#[0-9A-Fa-f]{0,6}$/.test(val)) {
+                setTextColor(val);
+              }
+            }}
+            className="h-6 w-20 rounded border bg-transparent px-2 text-[10px] font-mono"
+            placeholder="#ffffff"
+          />
         </div>
       </div>
 
