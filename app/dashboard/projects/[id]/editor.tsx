@@ -12,6 +12,7 @@ import { BatchExportDialog } from "@/components/editor/batch-export-dialog";
 import { DeviceMockup, getDeviceMockup } from "@/lib/devices/frames";
 import { BezelConfig, getBezelById, allBezels } from "@/lib/devices/bezels";
 import { RightPanel } from "@/components/editor/right-panel";
+import type { AlignmentType } from "@/components/editor/panels/alignment-section";
 import { useCanvasHistory } from "@/hooks/use-canvas-history";
 import { useBackgroundRemoval } from "@/hooks/use-background-removal";
 import { getDevicesByType } from "@/lib/devices";
@@ -107,6 +108,10 @@ export function ProjectEditor({
   // Track if an image is currently selected
   const [hasSelectedImage, setHasSelectedImage] = useState(false);
 
+  // Track selection state for alignment tools
+  const [hasSelection, setHasSelection] = useState(false);
+  const [hasMultipleSelection, setHasMultipleSelection] = useState(false);
+
   // Background removal hook
   const {
     isProcessing: isRemovingBackground,
@@ -175,9 +180,14 @@ export function ProjectEditor({
     canvas.on("object:removed", handleStateChange);
     canvas.on("object:modified", handleStateChange);
 
-    // Selection event handlers for text styling
+    // Selection event handlers for text styling and alignment
     const handleSelection = () => {
       const activeObject = canvas.getActiveObject();
+
+      // Track selection for alignment tools
+      setHasSelection(!!activeObject);
+      setHasMultipleSelection(activeObject?.type === "activeSelection" || activeObject?.type === "ActiveSelection");
+
       if (activeObject && (activeObject.type === "Text" || activeObject.type === "Textbox" || activeObject.type === "IText" || activeObject.type === "text" || activeObject.type === "textbox" || activeObject.type === "i-text")) {
         const textObj = activeObject as FabricText;
         setSelectedTextStyle({
@@ -199,6 +209,8 @@ export function ProjectEditor({
     const handleSelectionCleared = () => {
       setSelectedTextStyle(null);
       setHasSelectedImage(false);
+      setHasSelection(false);
+      setHasMultipleSelection(false);
     };
 
     canvas.on("selection:created", handleSelection);
@@ -1051,6 +1063,114 @@ export function ProjectEditor({
     },
     [markDirty]
   );
+
+  // Handle alignment of selected objects
+  const handleAlign = useCallback((type: AlignmentType) => {
+    if (!fabricRef.current) return;
+
+    const canvas = fabricRef.current;
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject) return;
+
+    const canvasWidth = canvas.width!;
+    const canvasHeight = canvas.height!;
+
+    if (activeObject.type === "activeSelection" || activeObject.type === "ActiveSelection") {
+      // Multiple selection - align relative to selection bounds or distribute
+      const selection = activeObject as unknown as { _objects: Array<{ left?: number; top?: number; width?: number; height?: number; originX?: string; originY?: string; set: (key: string, val: number) => void }> };
+      const objects = selection._objects;
+
+      if (objects.length < 2) return;
+
+      switch (type) {
+        case "left": {
+          const minLeft = Math.min(...objects.map(o => o.left! - (o.width! * (o.originX === "center" ? 0.5 : 0))));
+          objects.forEach(o => {
+            const offset = o.originX === "center" ? o.width! / 2 : 0;
+            o.set("left", minLeft + offset);
+          });
+          break;
+        }
+        case "center-h": {
+          const centerX = canvasWidth / 2;
+          objects.forEach(o => o.set("left", centerX));
+          break;
+        }
+        case "right": {
+          const maxRight = Math.max(...objects.map(o => o.left! + (o.width! * (o.originX === "center" ? 0.5 : 1))));
+          objects.forEach(o => {
+            const offset = o.originX === "center" ? o.width! / 2 : o.width!;
+            o.set("left", maxRight - offset);
+          });
+          break;
+        }
+        case "top": {
+          const minTop = Math.min(...objects.map(o => o.top! - (o.height! * (o.originY === "center" ? 0.5 : 0))));
+          objects.forEach(o => {
+            const offset = o.originY === "center" ? o.height! / 2 : 0;
+            o.set("top", minTop + offset);
+          });
+          break;
+        }
+        case "center-v": {
+          const centerY = canvasHeight / 2;
+          objects.forEach(o => o.set("top", centerY));
+          break;
+        }
+        case "bottom": {
+          const maxBottom = Math.max(...objects.map(o => o.top! + (o.height! * (o.originY === "center" ? 0.5 : 1))));
+          objects.forEach(o => {
+            const offset = o.originY === "center" ? o.height! / 2 : o.height!;
+            o.set("top", maxBottom - offset);
+          });
+          break;
+        }
+        case "distribute-h": {
+          if (objects.length < 3) break;
+          const sorted = [...objects].sort((a, b) => a.left! - b.left!);
+          const firstLeft = sorted[0].left!;
+          const lastLeft = sorted[sorted.length - 1].left!;
+          const spacing = (lastLeft - firstLeft) / (objects.length - 1);
+          sorted.forEach((o, i) => o.set("left", firstLeft + spacing * i));
+          break;
+        }
+        case "distribute-v": {
+          if (objects.length < 3) break;
+          const sorted = [...objects].sort((a, b) => a.top! - b.top!);
+          const firstTop = sorted[0].top!;
+          const lastTop = sorted[sorted.length - 1].top!;
+          const spacing = (lastTop - firstTop) / (objects.length - 1);
+          sorted.forEach((o, i) => o.set("top", firstTop + spacing * i));
+          break;
+        }
+      }
+    } else {
+      // Single object - align to canvas
+      switch (type) {
+        case "left":
+          activeObject.set("left", activeObject.originX === "center" ? activeObject.width! / 2 : 0);
+          break;
+        case "center-h":
+          activeObject.set("left", canvasWidth / 2);
+          break;
+        case "right":
+          activeObject.set("left", activeObject.originX === "center" ? canvasWidth - activeObject.width! / 2 : canvasWidth - activeObject.width!);
+          break;
+        case "top":
+          activeObject.set("top", activeObject.originY === "center" ? activeObject.height! / 2 : 0);
+          break;
+        case "center-v":
+          activeObject.set("top", canvasHeight / 2);
+          break;
+        case "bottom":
+          activeObject.set("top", activeObject.originY === "center" ? canvasHeight - activeObject.height! / 2 : canvasHeight - activeObject.height!);
+          break;
+      }
+    }
+
+    canvas.renderAll();
+    markDirty();
+  }, [markDirty]);
 
   // Handle background removal for selected image
   const handleRemoveBackground = useCallback(async () => {
@@ -2227,6 +2347,9 @@ export function ProjectEditor({
               hasScreenshot={hasScreenshot}
               currentBezel={currentBezel}
               onApplyBezel={applyBezel}
+              hasSelection={hasSelection}
+              hasMultipleSelection={hasMultipleSelection}
+              onAlign={handleAlign}
             />
           )}
         </div>

@@ -8,6 +8,7 @@ import {
   LayoutTemplate,
   Pencil,
   Frame,
+  AlignCenter,
 } from "lucide-react";
 import {
   Accordion,
@@ -22,6 +23,7 @@ import { TextStyleSection, type SelectedTextStyle } from "./panels/text-style-se
 import { ScreenshotSection } from "./panels/screenshot-section";
 import { TemplatesSection } from "./panels/templates-section";
 import { DeviceFrameSection } from "./panels/device-frame-section";
+import { AlignmentSection, type AlignmentType } from "./panels/alignment-section";
 import type { DeviceFrame, PreviewTemplate } from "@/types";
 import type { DeviceMockup } from "@/lib/devices/frames";
 import type { BezelConfig } from "@/lib/devices/bezels";
@@ -71,6 +73,11 @@ interface RightPanelProps {
   // Bezel props
   currentBezel?: BezelConfig | null;
   onApplyBezel?: (bezel: BezelConfig) => void;
+
+  // Alignment props
+  hasSelection?: boolean;
+  hasMultipleSelection?: boolean;
+  onAlign?: (type: AlignmentType) => void;
 }
 
 export function RightPanel({
@@ -95,6 +102,9 @@ export function RightPanel({
   hasScreenshot,
   currentBezel,
   onApplyBezel,
+  hasSelection,
+  hasMultipleSelection,
+  onAlign,
 }: RightPanelProps) {
   return (
     <aside className="hidden w-80 shrink-0 border-l bg-muted/30 lg:block overflow-y-auto">
@@ -178,6 +188,24 @@ export function RightPanel({
               <TextStyleSection
                 style={selectedTextStyle}
                 onStyleChange={onTextStyleChange}
+              />
+            </AccordionContent>
+          </AccordionItem>
+        )}
+
+        {/* Alignment Section - only shown when object is selected */}
+        {hasSelection && onAlign && (
+          <AccordionItem value="alignment" className="border-b">
+            <AccordionTrigger className="px-4 hover:no-underline">
+              <div className="flex items-center gap-2">
+                <AlignCenter className="h-4 w-4" />
+                <span className="text-sm font-medium">Alignment</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-4">
+              <AlignmentSection
+                onAlign={onAlign}
+                hasMultipleSelection={hasMultipleSelection ?? false}
               />
             </AccordionContent>
           </AccordionItem>
