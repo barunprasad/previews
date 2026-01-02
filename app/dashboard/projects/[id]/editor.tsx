@@ -536,8 +536,8 @@ export function ProjectEditor({
       angle: imageAngle, // Apply the image's rotation to the entire group
     });
 
-    // Store mockup ID as direct property
-    (deviceGroup as Group & { deviceMockupId?: string }).deviceMockupId = mockup.id;
+    // Store mockup ID in data property (persisted by Fabric.js toJSON)
+    deviceGroup.set("data", { deviceMockupId: mockup.id });
 
     return deviceGroup;
   }, []);
@@ -639,8 +639,8 @@ export function ProjectEditor({
       angle: imageAngle, // Apply the image's rotation to the entire group
     });
 
-    // Store bezel ID - set both ways for compatibility
-    (deviceGroup as Group & { bezelId?: string }).bezelId = bezel.id;
+    // Store bezel ID in data property (persisted by Fabric.js toJSON)
+    deviceGroup.set("data", { bezelId: bezel.id });
 
     return deviceGroup;
   }, []);
@@ -677,7 +677,7 @@ export function ProjectEditor({
       const allObjects = canvas.getObjects();
       for (const obj of allObjects) {
         if (isGroup(obj)) {
-          const group = obj as Group & { bezelId?: string; deviceMockupId?: string };
+          const group = obj as Group & { data?: { bezelId?: string; deviceMockupId?: string } };
           const groupObjects = group.getObjects();
           const imageInGroup = groupObjects.find((o) => isImage(o)) as FabricImage | undefined;
 
@@ -726,9 +726,9 @@ export function ProjectEditor({
               standaloneImg.setCoords();
 
               // Check if this was a bezel frame or a programmatic mockup frame
-              // Access custom properties directly on the group object
-              const bezelId = group.bezelId;
-              const mockupId = group.deviceMockupId;
+              // Access IDs from data property (persisted by Fabric.js)
+              const bezelId = group.data?.bezelId;
+              const mockupId = group.data?.deviceMockupId;
 
               if (bezelId || currentBezel) {
                 // Re-apply bezel frame
@@ -1100,21 +1100,29 @@ export function ProjectEditor({
   const detectDeviceFrameOnCanvas = useCallback((canvas: Canvas): { mockup: DeviceMockup | null; bezel: BezelConfig | null } => {
     const objects = canvas.getObjects();
 
-    for (const obj of objects) {
-      if (obj.type === "Group") {
-        const group = obj as Group & { bezelId?: string; deviceMockupId?: string };
-        const groupObjects = group.getObjects();
-        const hasImage = groupObjects.some((o) => o.type === "Image");
+    // Helper to check type (handles both v5 lowercase and v6+ uppercase)
+    const isGroup = (type?: string) => type === "Group" || type === "group";
+    const isImage = (type?: string) => type === "Image" || type === "image";
 
-        if (hasImage && group.bezelId) {
+    for (const obj of objects) {
+      if (isGroup(obj.type)) {
+        const group = obj as Group & { data?: { bezelId?: string; deviceMockupId?: string } };
+        const groupObjects = group.getObjects();
+        const hasImage = groupObjects.some((o) => isImage(o.type));
+
+        // Get IDs from data property (persisted by Fabric.js)
+        const bezelId = group.data?.bezelId;
+        const mockupId = group.data?.deviceMockupId;
+
+        if (hasImage && bezelId) {
           // Found a bezel frame group
           deviceFrameRef.current = group;
-          const bezel = getBezelById(group.bezelId);
+          const bezel = getBezelById(bezelId);
           return { mockup: null, bezel: bezel || null };
-        } else if (hasImage && group.deviceMockupId) {
+        } else if (hasImage && mockupId) {
           // Found a device frame group with stored mockup ID
           deviceFrameRef.current = group;
-          return { mockup: getDeviceMockup(group.deviceMockupId), bezel: null };
+          return { mockup: getDeviceMockup(mockupId), bezel: null };
         } else if (hasImage) {
           // Found a device frame group but no stored ID - use default
           deviceFrameRef.current = group;
