@@ -321,7 +321,7 @@ body {
   );
 }
 
-/* Aurora background effect - warm tones */
+/* Aurora background effect - warm tones (optimized) */
 .aurora-bg {
   position: relative;
   overflow: hidden;
@@ -330,20 +330,29 @@ body {
 .aurora-bg::before {
   content: "";
   position: absolute;
-  inset: -50%;
+  inset: 0;
   background:
-    radial-gradient(ellipse at 20% 30%, var(--accent-amber) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, var(--accent-orange) 0%, transparent 50%),
-    radial-gradient(ellipse at 60% 80%, var(--accent-coral) 0%, transparent 50%),
-    radial-gradient(ellipse at 30% 70%, var(--accent-gold) 0%, transparent 50%);
-  opacity: 0.3;
-  filter: blur(60px);
-  animation: aurora 20s ease-in-out infinite;
+    radial-gradient(ellipse 80% 60% at 20% 30%, var(--accent-amber) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 80% 20%, var(--accent-orange) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 60% 80%, var(--accent-coral) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 30% 70%, var(--accent-gold) 0%, transparent 60%);
+  opacity: 0.25;
+  filter: blur(40px);
+  will-change: transform;
+  transform: translateZ(0);
+  animation: aurora 30s ease-in-out infinite;
   pointer-events: none;
 }
 
 .dark .aurora-bg::before {
-  opacity: 0.4;
+  opacity: 0.35;
+}
+
+/* Disable aurora animation for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-bg::before {
+    animation: none;
+  }
 }
 
 /* ============================================
@@ -381,16 +390,13 @@ body {
 
 @keyframes aurora {
   0%, 100% {
-    transform: translate(0, 0) rotate(0deg) scale(1);
+    transform: translate3d(0, 0, 0) rotate(0deg);
   }
-  25% {
-    transform: translate(10%, 5%) rotate(3deg) scale(1.05);
+  33% {
+    transform: translate3d(5%, 3%, 0) rotate(2deg);
   }
-  50% {
-    transform: translate(-5%, 10%) rotate(-2deg) scale(1.02);
-  }
-  75% {
-    transform: translate(-10%, -5%) rotate(1deg) scale(0.98);
+  66% {
+    transform: translate3d(-3%, 5%, 0) rotate(-1deg);
   }
 }
 
@@ -513,6 +519,30 @@ body {
 /* Pulse glow */
 .pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Grid dot pulse animation (optimized) */
+@keyframes grid-dot-pulse {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
+.grid-dot-pulse {
+  animation: grid-dot-pulse 4s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grid-dot-pulse {
+    animation: none;
+    opacity: 0.3;
+  }
 }
 
 /* ============================================

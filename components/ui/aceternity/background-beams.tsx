@@ -80,61 +80,49 @@ export const BackgroundBeams = ({ className }: { className?: string }) => {
   );
 };
 
-// Simpler grid beam variant
+// Simpler grid beam variant (optimized - CSS animations, fewer elements)
 export const GridBeams = ({ className }: { className?: string }) => {
   return (
     <div className={cn("absolute inset-0 overflow-hidden", className)}>
-      {/* Vertical beams */}
+      {/* Static grid lines - no animation needed */}
       <div className="absolute inset-0 flex justify-around">
-        {[...Array(6)].map((_, i) => (
-          <motion.div
+        {[...Array(5)].map((_, i) => (
+          <div
             key={`v-${i}`}
-            className="h-full w-px bg-gradient-to-b from-transparent via-[var(--accent-orange)]/20 to-transparent"
-            initial={{ opacity: 0, scaleY: 0 }}
-            animate={{ opacity: 1, scaleY: 1 }}
-            transition={{
-              duration: 1.5,
-              delay: i * 0.1,
-              ease: "easeOut",
-            }}
+            className="h-full w-px bg-gradient-to-b from-transparent via-[var(--accent-orange)]/15 to-transparent"
           />
         ))}
       </div>
 
-      {/* Horizontal beams */}
+      {/* Horizontal beams - static */}
       <div className="absolute inset-0 flex flex-col justify-around">
-        {[...Array(4)].map((_, i) => (
-          <motion.div
+        {[...Array(3)].map((_, i) => (
+          <div
             key={`h-${i}`}
-            className="h-px w-full bg-gradient-to-r from-transparent via-[var(--accent-amber)]/15 to-transparent"
-            initial={{ opacity: 0, scaleX: 0 }}
-            animate={{ opacity: 1, scaleX: 1 }}
-            transition={{
-              duration: 1.5,
-              delay: i * 0.1 + 0.3,
-              ease: "easeOut",
-            }}
+            className="h-px w-full bg-gradient-to-r from-transparent via-[var(--accent-amber)]/10 to-transparent"
           />
         ))}
       </div>
 
-      {/* Animated glow dots at intersections */}
-      <div className="absolute inset-0 grid grid-cols-6 grid-rows-4">
-        {[...Array(24)].map((_, i) => (
-          <motion.div
+      {/* Reduced animated glow dots - only 6 key intersections with CSS animation */}
+      <div className="absolute inset-0 pointer-events-none">
+        {[
+          { top: "25%", left: "20%" },
+          { top: "25%", left: "80%" },
+          { top: "50%", left: "40%" },
+          { top: "50%", left: "60%" },
+          { top: "75%", left: "20%" },
+          { top: "75%", left: "80%" },
+        ].map((pos, i) => (
+          <div
             key={`dot-${i}`}
-            className="flex items-center justify-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 0.5, 0] }}
-            transition={{
-              duration: 3,
-              delay: i * 0.1,
-              repeat: Infinity,
-              repeatDelay: 2,
+            className="absolute h-1 w-1 rounded-full bg-[var(--accent-orange)] grid-dot-pulse"
+            style={{
+              top: pos.top,
+              left: pos.left,
+              animationDelay: `${i * 0.8}s`,
             }}
-          >
-            <div className="h-1 w-1 rounded-full bg-[var(--accent-orange)]" />
-          </motion.div>
+          />
         ))}
       </div>
     </div>
