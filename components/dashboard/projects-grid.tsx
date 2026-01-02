@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
+import { staggerContainerVariants } from "@/lib/animations/variants";
 import { ProjectCard, ProjectCardSkeleton } from "./project-card";
 import {
   AlertDialog,
@@ -67,7 +69,12 @@ export function ProjectsGrid({ projects }: ProjectsGridProps) {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <motion.div
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+        variants={staggerContainerVariants}
+        initial="initial"
+        animate="animate"
+      >
         {projects.map((project) => (
           <ProjectCard
             key={project.id}
@@ -76,7 +83,7 @@ export function ProjectsGrid({ projects }: ProjectsGridProps) {
             onDuplicate={handleDuplicate}
           />
         ))}
-      </div>
+      </motion.div>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

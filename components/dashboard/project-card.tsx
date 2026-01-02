@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
+import { motion } from "framer-motion";
 import { MoreHorizontal, Pencil, Trash2, Smartphone, Copy, ChevronLeft, ChevronRight } from "lucide-react";
+import { cardVariants, staggerItemVariants } from "@/lib/animations/variants";
 import {
   Card,
   CardContent,
@@ -59,8 +61,14 @@ export function ProjectCard({ project, onDelete, onDuplicate }: ProjectCardProps
   };
 
   return (
-    <Card className="group overflow-hidden transition-all hover:shadow-md">
-      <Link href={`/dashboard/projects/${project.id}`}>
+    <motion.div
+      variants={staggerItemVariants}
+      whileHover={{ y: -4 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ duration: 0.15 }}
+    >
+      <Card className="group overflow-hidden hover:shadow-md">
+        <Link href={`/dashboard/projects/${project.id}`}>
         <div className="relative aspect-[4/3] bg-muted">
           {thumbnails.length > 0 ? (
             <>
@@ -166,7 +174,8 @@ export function ProjectCard({ project, onDelete, onDuplicate }: ProjectCardProps
           Updated {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}
         </p>
       </CardFooter>
-    </Card>
+      </Card>
+    </motion.div>
   );
 }
 
