@@ -3,8 +3,8 @@ import Link from "next/link";
 import { Plus, LayoutTemplate } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { ProjectsGrid, ProjectsGridSkeleton } from "@/components/dashboard/projects-grid";
-import { EmptyState } from "@/components/dashboard/empty-state";
+import { ProjectsGridSkeleton } from "@/components/dashboard/projects-grid";
+import { ProjectsSearch } from "@/components/dashboard/projects-search";
 import type { Project, Preview } from "@/types";
 
 async function getProjects(): Promise<Project[]> {
@@ -63,12 +63,7 @@ async function getProjects(): Promise<Project[]> {
 
 async function ProjectsList() {
   const projects = await getProjects();
-
-  if (projects.length === 0) {
-    return <EmptyState />;
-  }
-
-  return <ProjectsGrid projects={projects} />;
+  return <ProjectsSearch projects={projects} />;
 }
 
 export default function ProjectsPage() {
