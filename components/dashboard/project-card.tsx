@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { MoreHorizontal, Pencil, Trash2, Smartphone, Copy, ChevronLeft, ChevronRight } from "lucide-react";
 import { cardVariants, staggerItemVariants } from "@/lib/animations/variants";
 import {
