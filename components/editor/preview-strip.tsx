@@ -133,7 +133,7 @@ export function PreviewStrip({
   const canDelete = previews.length > 1;
 
   return (
-    <div className="flex h-24 shrink-0 items-center gap-2 overflow-x-auto border-t bg-background px-4">
+    <div className="flex h-24 flex-1 shrink-0 items-center gap-2 overflow-x-auto bg-background px-4">
       {/* Preview thumbnails */}
       {previews.map((preview, index) => {
         const isActive = preview.id === activePreviewId;

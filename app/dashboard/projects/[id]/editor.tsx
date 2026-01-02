@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Upload, Loader2, Trash2, Save, Download, Undo2, Redo2, MoreHorizontal, ZoomIn, ZoomOut, Maximize, PanelRight, Package, ChevronDown, Smartphone } from "lucide-react";
+import { ArrowLeft, Upload, Loader2, Trash2, Save, Download, Undo2, Redo2, MoreHorizontal, ZoomIn, ZoomOut, Maximize, PanelRight, Package, ChevronDown, Smartphone, Eye } from "lucide-react";
 import { Canvas, FabricImage, FabricText, Gradient, Rect, Group, Shadow } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
 import { PreviewStrip } from "@/components/editor/preview-strip";
+import { AppStorePreview } from "@/components/editor/app-store-preview";
 import { isCloudinaryConfigured } from "@/lib/cloudinary/config";
 import { uploadToCloudinary } from "@/lib/cloudinary/upload";
 import type { Project, DeviceFrame, Preview, PreviewTemplate, TemplateSet } from "@/types";
@@ -70,6 +71,7 @@ export function ProjectEditor({
   const [isDragging, setIsDragging] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isBatchExportOpen, setIsBatchExportOpen] = useState(false);
+  const [isAppStorePreviewOpen, setIsAppStorePreviewOpen] = useState(false);
   const [currentMockup, setCurrentMockup] = useState<DeviceMockup | null>(null);
   const [currentBezel, setCurrentBezel] = useState<BezelConfig | null>(null);
   const deviceFrameRef = useRef<Group | null>(null);
@@ -1126,15 +1128,19 @@ export function ProjectEditor({
 
   // Helper function to remove device frame from a canvas and restore the image
   const removeDeviceFrameFromCanvas = useCallback((canvas: Canvas): boolean => {
+    // Helper to check type (handles both v5 lowercase and v6+ uppercase)
+    const isGroup = (type?: string) => type === "Group" || type === "group";
+    const isImage = (type?: string) => type === "Image" || type === "image";
+
     // Find any group that contains an image (device frame group)
     const objects = canvas.getObjects();
     let frameRemoved = false;
 
     for (const obj of objects) {
-      if (obj.type === "Group") {
+      if (isGroup(obj.type)) {
         const group = obj as Group;
         const groupObjects = group.getObjects();
-        const imageInGroup = groupObjects.find((o) => o.type === "Image") as FabricImage | undefined;
+        const imageInGroup = groupObjects.find((o) => isImage(o.type)) as FabricImage | undefined;
 
         if (imageInGroup) {
           const groupCenter = group.getCenterPoint();
@@ -1163,78 +1169,50 @@ export function ProjectEditor({
     return frameRemoved;
   }, []);
 
-  // Remove device frame from current canvas and all previews
-  const removeDeviceFrame = useCallback(async () => {
-    if (!fabricRef.current) return;
+  // Remove device frame from current preview only
+  const removeDeviceFrame = useCallback(() => {
+    if (!fabricRef.current || !activePreview) return;
 
     const canvas = fabricRef.current;
 
-    // Remove from current canvas
+    // Remove from current canvas only
     const removed = removeDeviceFrameFromCanvas(canvas);
 
-    if (removed) {
-      // Set active object to the restored image
-      const images = canvas.getObjects().filter((obj) => obj.type === "Image");
-      if (images.length > 0) {
-        canvas.setActiveObject(images[0]);
-      }
+    if (!removed) {
+      toast.error("No device frame to remove");
+      return;
+    }
+
+    // Set active object to the restored image
+    const isImage = (type?: string) => type === "Image" || type === "image";
+    const images = canvas.getObjects().filter((obj) => isImage(obj.type));
+    if (images.length > 0) {
+      canvas.setActiveObject(images[0]);
     }
 
     deviceFrameRef.current = null;
 
-    // Save current canvas state
+    // Save current canvas state (only for this preview)
     const currentCanvasJson = canvas.toJSON();
 
-    // Remove from all other previews
-    const updatedPreviews = await Promise.all(
-      previews.map(async (preview) => {
-        if (preview.id === activePreview?.id) {
-          // Current preview - already updated
-          return {
-            ...preview,
-            canvasJson: currentCanvasJson,
-          };
-        }
-
-        // For other previews, load their canvas, remove frame, and save
-        if (preview.canvasJson) {
-          const offscreenEl = document.createElement("canvas");
-          offscreenEl.width = canvasWidth;
-          offscreenEl.height = canvasHeight;
-          const tempCanvas = new Canvas(offscreenEl, {
-            width: canvasWidth,
-            height: canvasHeight,
-          });
-
-          try {
-            await tempCanvas.loadFromJSON(preview.canvasJson);
-            const wasRemoved = removeDeviceFrameFromCanvas(tempCanvas);
-
-            if (wasRemoved) {
-              const updatedJson = tempCanvas.toJSON();
-              tempCanvas.dispose();
-              return {
-                ...preview,
-                canvasJson: updatedJson,
-              };
-            }
-          } catch (error) {
-            console.error(`Failed to remove frame from preview ${preview.id}:`, error);
-          }
-
-          tempCanvas.dispose();
-        }
-
-        return preview;
-      })
-    );
+    // Update only the active preview
+    const updatedPreviews = previews.map((preview) => {
+      if (preview.id === activePreview.id) {
+        return {
+          ...preview,
+          canvasJson: currentCanvasJson,
+        };
+      }
+      return preview;
+    });
 
     setPreviews(updatedPreviews);
     setCurrentMockup(null);
     setCurrentBezel(null);
     canvas.renderAll();
     markAllDirty();
-  }, [markAllDirty, removeDeviceFrameFromCanvas, previews, activePreview, canvasWidth, canvasHeight]);
+    toast.success(`Device frame removed from "${activePreview.name}"`);
+  }, [markAllDirty, removeDeviceFrameFromCanvas, previews, activePreview]);
 
   // Apply SVG bezel to the current canvas
   const applyBezelToCanvas = useCallback(async (canvas: Canvas, bezel: BezelConfig): Promise<Group | null> => {
@@ -2217,14 +2195,34 @@ export function ProjectEditor({
         </div>
 
         {/* Preview strip at bottom */}
-        <PreviewStrip
-          projectId={project.id}
-          previews={previews}
-          activePreviewId={activePreview?.id || null}
-          onPreviewSelect={handlePreviewSelect}
-          onPreviewCreated={handlePreviewCreated}
-          onPreviewDeleted={handlePreviewDeleted}
-        />
+        <div className="flex items-center border-t bg-background">
+          <PreviewStrip
+            projectId={project.id}
+            previews={previews}
+            activePreviewId={activePreview?.id || null}
+            onPreviewSelect={handlePreviewSelect}
+            onPreviewCreated={handlePreviewCreated}
+            onPreviewDeleted={handlePreviewDeleted}
+          />
+          <div className="flex shrink-0 items-center gap-2 border-l px-4">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsAppStorePreviewOpen(true)}
+                  className="gap-2"
+                >
+                  <Eye className="h-4 w-4" />
+                  <span className="hidden sm:inline">Preview All</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                View all previews as they appear on App Store
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
 
         {/* Export dialog */}
         <ExportDialog
@@ -2244,6 +2242,17 @@ export function ProjectEditor({
           canvasHeight={canvasHeight}
           deviceType={project.deviceType as "iphone" | "android"}
         />
+
+        {/* App Store Preview overlay */}
+        {isAppStorePreviewOpen && (
+          <AppStorePreview
+            previews={previews}
+            activePreviewId={activePreview?.id || null}
+            selectedDevice={selectedDevice}
+            onPreviewSelect={handlePreviewSelect}
+            onClose={() => setIsAppStorePreviewOpen(false)}
+          />
+        )}
       </div>
     </TooltipProvider>
   );
