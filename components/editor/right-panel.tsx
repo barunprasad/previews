@@ -9,6 +9,7 @@ import {
   Pencil,
   Frame,
   AlignCenter,
+  Layers,
 } from "lucide-react";
 import {
   Accordion,
@@ -24,6 +25,7 @@ import { ScreenshotSection } from "./panels/screenshot-section";
 import { TemplatesSection } from "./panels/templates-section";
 import { DeviceFrameSection } from "./panels/device-frame-section";
 import { AlignmentSection, type AlignmentType } from "./panels/alignment-section";
+import { LayerSection, type LayerAction } from "./panels/layer-section";
 import type { DeviceFrame, PreviewTemplate } from "@/types";
 import type { DeviceMockup } from "@/lib/devices/frames";
 import type { BezelConfig } from "@/lib/devices/bezels";
@@ -78,6 +80,9 @@ interface RightPanelProps {
   hasSelection?: boolean;
   hasMultipleSelection?: boolean;
   onAlign?: (type: AlignmentType) => void;
+
+  // Layer props
+  onLayerAction?: (action: LayerAction) => void;
 }
 
 export function RightPanel({
@@ -105,6 +110,7 @@ export function RightPanel({
   hasSelection,
   hasMultipleSelection,
   onAlign,
+  onLayerAction,
 }: RightPanelProps) {
   return (
     <aside className="hidden w-80 shrink-0 border-l bg-muted/30 lg:block overflow-y-auto">
@@ -207,6 +213,21 @@ export function RightPanel({
                 onAlign={onAlign}
                 hasMultipleSelection={hasMultipleSelection ?? false}
               />
+            </AccordionContent>
+          </AccordionItem>
+        )}
+
+        {/* Layer Section - only shown when object is selected */}
+        {hasSelection && onLayerAction && (
+          <AccordionItem value="layers" className="border-b">
+            <AccordionTrigger className="px-4 hover:no-underline">
+              <div className="flex items-center gap-2">
+                <Layers className="h-4 w-4" />
+                <span className="text-sm font-medium">Layers</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-4">
+              <LayerSection onLayerAction={onLayerAction} />
             </AccordionContent>
           </AccordionItem>
         )}

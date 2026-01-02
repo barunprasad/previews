@@ -13,6 +13,7 @@ import { DeviceMockup, getDeviceMockup } from "@/lib/devices/frames";
 import { BezelConfig, getBezelById, allBezels } from "@/lib/devices/bezels";
 import { RightPanel } from "@/components/editor/right-panel";
 import type { AlignmentType } from "@/components/editor/panels/alignment-section";
+import type { LayerAction } from "@/components/editor/panels/layer-section";
 import { useCanvasHistory } from "@/hooks/use-canvas-history";
 import { useBackgroundRemoval } from "@/hooks/use-background-removal";
 import { getDevicesByType } from "@/lib/devices";
@@ -1166,6 +1167,33 @@ export function ProjectEditor({
           activeObject.set("top", activeObject.originY === "center" ? canvasHeight - activeObject.height! / 2 : canvasHeight - activeObject.height!);
           break;
       }
+    }
+
+    canvas.renderAll();
+    markDirty();
+  }, [markDirty]);
+
+  // Handle layer reordering
+  const handleLayerAction = useCallback((action: LayerAction) => {
+    if (!fabricRef.current) return;
+
+    const canvas = fabricRef.current;
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject) return;
+
+    switch (action) {
+      case "bring-front":
+        canvas.bringObjectToFront(activeObject);
+        break;
+      case "send-back":
+        canvas.sendObjectToBack(activeObject);
+        break;
+      case "bring-forward":
+        canvas.bringObjectForward(activeObject);
+        break;
+      case "send-backward":
+        canvas.sendObjectBackwards(activeObject);
+        break;
     }
 
     canvas.renderAll();
@@ -2350,6 +2378,7 @@ export function ProjectEditor({
               hasSelection={hasSelection}
               hasMultipleSelection={hasMultipleSelection}
               onAlign={handleAlign}
+              onLayerAction={handleLayerAction}
             />
           )}
         </div>
