@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +44,7 @@ export function PreviewStrip({
 }: PreviewStripProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const handleCreatePreview = async () => {
@@ -129,6 +130,67 @@ export function PreviewStrip({
     }
   };
 
+  const handleDuplicatePreview = async (preview: Preview) => {
+    if (previews.length >= MAX_PREVIEWS_PER_PROJECT) {
+      toast.error(`Maximum ${MAX_PREVIEWS_PER_PROJECT} previews allowed`);
+      return;
+    }
+
+    setDuplicatingId(preview.id);
+
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast.error("You must be logged in");
+        return;
+      }
+
+      // Get next sort order
+      const maxSortOrder = Math.max(...previews.map((p) => p.sortOrder), -1);
+      const nextSortOrder = maxSortOrder + 1;
+
+      const { data, error } = await supabase
+        .from("previews")
+        .insert({
+          project_id: projectId,
+          user_id: user.id,
+          name: `${preview.name} (Copy)`,
+          sort_order: nextSortOrder,
+          canvas_json: preview.canvasJson,
+          background: preview.background,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+
+      const newPreview: Preview = {
+        id: data.id,
+        projectId: data.project_id,
+        userId: data.user_id,
+        name: data.name,
+        canvasJson: data.canvas_json,
+        background: data.background,
+        thumbnailUrl: null, // Will generate on first save
+        sortOrder: data.sort_order,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+
+      toast.success("Preview duplicated");
+      onPreviewCreated(newPreview);
+    } catch {
+      toast.error("Failed to duplicate preview");
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
   const canAddMore = previews.length < MAX_PREVIEWS_PER_PROJECT;
   const canDelete = previews.length > 1;
 
@@ -139,6 +201,8 @@ export function PreviewStrip({
         const isActive = preview.id === activePreviewId;
         const isHovered = hoveredId === preview.id;
         const isDeleting = deletingId === preview.id;
+        const isDuplicating = duplicatingId === preview.id;
+        const isLoading = isDeleting || isDuplicating;
 
         return (
           <div
@@ -155,7 +219,7 @@ export function PreviewStrip({
                   ? "border-primary ring-2 ring-primary/20"
                   : "border-border hover:border-primary/50"
               )}
-              disabled={isDeleting}
+              disabled={isLoading}
             >
               {preview.thumbnailUrl ? (
                 <img
@@ -178,42 +242,65 @@ export function PreviewStrip({
               </div>
 
               {/* Loading overlay */}
-              {isDeleting && (
+              {isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                   <Loader2 className="h-4 w-4 animate-spin text-white" />
                 </div>
               )}
             </button>
 
-            {/* Delete button - show on hover if can delete */}
-            {canDelete && isHovered && !isDeleting && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <button
-                    className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow-sm transition-transform hover:scale-110"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Preview</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to delete &quot;{preview.name}&quot;? This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => handleDeletePreview(preview.id)}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+            {/* Action buttons - show on hover */}
+            {isHovered && !isLoading && (
+              <>
+                {/* Duplicate button */}
+                {canAddMore && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform hover:scale-110"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDuplicatePreview(preview);
+                        }}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">Duplicate</TooltipContent>
+                  </Tooltip>
+                )}
+
+                {/* Delete button */}
+                {canDelete && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button
+                        className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow-sm transition-transform hover:scale-110"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Preview</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete &quot;{preview.name}&quot;? This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDeletePreview(preview.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </>
             )}
           </div>
         );
