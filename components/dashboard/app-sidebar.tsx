@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FolderOpen,
-  Settings,
   Plus,
   LogOut,
   Smartphone,
@@ -36,11 +35,6 @@ const navItems = [
     title: "Projects",
     href: "/dashboard/projects",
     icon: FolderOpen,
-  },
-  {
-    title: "Settings",
-    href: "/dashboard/settings",
-    icon: Settings,
   },
 ];
 
