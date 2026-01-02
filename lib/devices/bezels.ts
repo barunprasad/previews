@@ -25,7 +25,25 @@ export interface BezelConfig {
 }
 
 // iPhone 17 Pro Max bezels
+// SVG: 490 x 1000, Screen: 440 x 956 (centered, offset 25, 22)
 export const iPhone17ProMaxBezels: BezelConfig[] = [
+  {
+    id: "iphone-17-pro-max-cosmic-orange",
+    name: "iPhone 17 Pro Max",
+    bezelPath: "/bezels/iPhone17ProMax/Color=CosmicOrange.svg",
+    bezelWidth: 490,
+    bezelHeight: 1000,
+    screen: {
+      x: 25,
+      y: 22,
+      width: 440,
+      height: 956,
+      cornerRadius: 28,
+    },
+    nativeWidth: 1320,
+    nativeHeight: 2868,
+    color: "Cosmic Orange",
+  },
   {
     id: "iphone-17-pro-max-deep-blue",
     name: "iPhone 17 Pro Max",
@@ -39,8 +57,8 @@ export const iPhone17ProMaxBezels: BezelConfig[] = [
       height: 956,
       cornerRadius: 28,
     },
-    nativeWidth: 1470,
-    nativeHeight: 3000,
+    nativeWidth: 1320,
+    nativeHeight: 2868,
     color: "Deep Blue",
   },
   {
@@ -56,31 +74,32 @@ export const iPhone17ProMaxBezels: BezelConfig[] = [
       height: 956,
       cornerRadius: 28,
     },
-    nativeWidth: 1470,
-    nativeHeight: 3000,
+    nativeWidth: 1320,
+    nativeHeight: 2868,
     color: "Silver",
-  },
-  {
-    id: "iphone-17-pro-max-cosmic-orange",
-    name: "iPhone 17 Pro Max",
-    bezelPath: "/bezels/iPhone17ProMax/Color=CosmicOrange.svg",
-    bezelWidth: 490,
-    bezelHeight: 1000,
-    screen: {
-      x: 25,
-      y: 22,
-      width: 440,
-      height: 956,
-      cornerRadius: 28,
-    },
-    nativeWidth: 1470,
-    nativeHeight: 3000,
-    color: "Cosmic Orange",
   },
 ];
 
 // iPhone 17 Pro bezels
+// SVG: 450 x 920, Screen: 402 x 874 (centered, offset 24, 23)
 export const iPhone17ProBezels: BezelConfig[] = [
+  {
+    id: "iphone-17-pro-cosmic-orange",
+    name: "iPhone 17 Pro",
+    bezelPath: "/bezels/iPhone17Pro/Color=CosmicOrange.svg",
+    bezelWidth: 450,
+    bezelHeight: 920,
+    screen: {
+      x: 24,
+      y: 23,
+      width: 402,
+      height: 874,
+      cornerRadius: 26,
+    },
+    nativeWidth: 1206,
+    nativeHeight: 2622,
+    color: "Cosmic Orange",
+  },
   {
     id: "iphone-17-pro-deep-blue",
     name: "iPhone 17 Pro",
@@ -88,14 +107,14 @@ export const iPhone17ProBezels: BezelConfig[] = [
     bezelWidth: 450,
     bezelHeight: 920,
     screen: {
-      x: 23,
-      y: 20,
-      width: 404,
-      height: 880,
+      x: 24,
+      y: 23,
+      width: 402,
+      height: 874,
       cornerRadius: 26,
     },
-    nativeWidth: 1350,
-    nativeHeight: 2760,
+    nativeWidth: 1206,
+    nativeHeight: 2622,
     color: "Deep Blue",
   },
   {
@@ -105,52 +124,36 @@ export const iPhone17ProBezels: BezelConfig[] = [
     bezelWidth: 450,
     bezelHeight: 920,
     screen: {
-      x: 23,
-      y: 20,
-      width: 404,
-      height: 880,
+      x: 24,
+      y: 23,
+      width: 402,
+      height: 874,
       cornerRadius: 26,
     },
-    nativeWidth: 1350,
-    nativeHeight: 2760,
+    nativeWidth: 1206,
+    nativeHeight: 2622,
     color: "Silver",
-  },
-  {
-    id: "iphone-17-pro-cosmic-orange",
-    name: "iPhone 17 Pro",
-    bezelPath: "/bezels/iPhone17Pro/Color=CosmicOrange.svg",
-    bezelWidth: 450,
-    bezelHeight: 920,
-    screen: {
-      x: 23,
-      y: 20,
-      width: 404,
-      height: 880,
-      cornerRadius: 26,
-    },
-    nativeWidth: 1350,
-    nativeHeight: 2760,
-    color: "Cosmic Orange",
   },
 ];
 
 // iPhone 17 bezels
+// SVG: 450 x 920, Screen: 402 x 874 (centered, offset 24, 23)
 export const iPhone17Bezels: BezelConfig[] = [
   {
     id: "iphone-17-black",
     name: "iPhone 17",
-    bezelPath: "/bezels/iPhone17Black.svg",
+    bezelPath: "/bezels/iPhone17/Color=Black.svg",
     bezelWidth: 450,
     bezelHeight: 920,
     screen: {
-      x: 23,
-      y: 20,
-      width: 404,
-      height: 880,
+      x: 24,
+      y: 23,
+      width: 402,
+      height: 874,
       cornerRadius: 26,
     },
-    nativeWidth: 1350,
-    nativeHeight: 2760,
+    nativeWidth: 1206,
+    nativeHeight: 2622,
     color: "Black",
   },
   {
@@ -160,32 +163,15 @@ export const iPhone17Bezels: BezelConfig[] = [
     bezelWidth: 450,
     bezelHeight: 920,
     screen: {
-      x: 23,
-      y: 20,
-      width: 404,
-      height: 880,
+      x: 24,
+      y: 23,
+      width: 402,
+      height: 874,
       cornerRadius: 26,
     },
-    nativeWidth: 1350,
-    nativeHeight: 2760,
+    nativeWidth: 1206,
+    nativeHeight: 2622,
     color: "White",
-  },
-  {
-    id: "iphone-17-black-alt",
-    name: "iPhone 17",
-    bezelPath: "/bezels/iPhone17/Color=Black.svg",
-    bezelWidth: 450,
-    bezelHeight: 920,
-    screen: {
-      x: 23,
-      y: 20,
-      width: 404,
-      height: 880,
-      cornerRadius: 26,
-    },
-    nativeWidth: 1350,
-    nativeHeight: 2760,
-    color: "Black",
   },
 ];
 
