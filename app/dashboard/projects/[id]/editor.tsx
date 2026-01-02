@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ArrowLeft, Upload, Loader2, Trash2, Save, Download, Undo2, Redo2, MoreHorizontal, ZoomIn, ZoomOut, Maximize, PanelRight, Package, ChevronDown, Smartphone, Eye } from "lucide-react";
-import { Canvas, FabricImage, FabricText, IText, Gradient, Rect, Group, Shadow } from "fabric";
+import { Canvas, FabricImage, FabricText, IText, Gradient, Rect, Group, Shadow, ActiveSelection, FabricObject } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ExportDialog } from "@/components/editor/export-dialog";
@@ -41,6 +41,7 @@ import { findReplaceableObjects, replaceScreenshot, type FabricImageWithData } f
 import { useOnboarding } from "@/hooks/use-onboarding";
 import { WelcomeModal } from "@/components/onboarding/welcome-modal";
 import { EditorTour } from "@/components/onboarding/editor-tour";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // Zoom levels
 const ZOOM_MIN = 0.1;
@@ -1097,97 +1098,159 @@ export function ProjectEditor({
     const canvasWidth = canvas.width!;
     const canvasHeight = canvas.height!;
 
+    // Helper to get object bounds accounting for scaling and origin
+    const getObjectBounds = (obj: FabricObject) => {
+      const bound = obj.getBoundingRect();
+      return {
+        left: bound.left,
+        top: bound.top,
+        right: bound.left + bound.width,
+        bottom: bound.top + bound.height,
+        width: bound.width,
+        height: bound.height,
+        centerX: bound.left + bound.width / 2,
+        centerY: bound.top + bound.height / 2,
+      };
+    };
+
     if (activeObject.type === "activeSelection" || activeObject.type === "ActiveSelection") {
       // Multiple selection - align relative to selection bounds or distribute
-      const selection = activeObject as unknown as { _objects: Array<{ left?: number; top?: number; width?: number; height?: number; originX?: string; originY?: string; set: (key: string, val: number) => void }> };
-      const objects = selection._objects;
+      const selection = activeObject as ActiveSelection;
+      const objects = selection.getObjects();
 
       if (objects.length < 2) return;
 
+      // Get bounds for all objects
+      const objectBounds = objects.map(obj => ({
+        obj,
+        bounds: getObjectBounds(obj),
+      }));
+
       switch (type) {
         case "left": {
-          const minLeft = Math.min(...objects.map(o => o.left! - (o.width! * (o.originX === "center" ? 0.5 : 0))));
-          objects.forEach(o => {
-            const offset = o.originX === "center" ? o.width! / 2 : 0;
-            o.set("left", minLeft + offset);
+          const minLeft = Math.min(...objectBounds.map(o => o.bounds.left));
+          objectBounds.forEach(({ obj, bounds }) => {
+            const delta = minLeft - bounds.left;
+            obj.set("left", obj.left! + delta);
+            obj.setCoords();
           });
           break;
         }
         case "center-h": {
-          const centerX = canvasWidth / 2;
-          objects.forEach(o => o.set("left", centerX));
+          objectBounds.forEach(({ obj, bounds }) => {
+            const targetCenterX = canvasWidth / 2;
+            const delta = targetCenterX - bounds.centerX;
+            obj.set("left", obj.left! + delta);
+            obj.setCoords();
+          });
           break;
         }
         case "right": {
-          const maxRight = Math.max(...objects.map(o => o.left! + (o.width! * (o.originX === "center" ? 0.5 : 1))));
-          objects.forEach(o => {
-            const offset = o.originX === "center" ? o.width! / 2 : o.width!;
-            o.set("left", maxRight - offset);
+          const maxRight = Math.max(...objectBounds.map(o => o.bounds.right));
+          objectBounds.forEach(({ obj, bounds }) => {
+            const delta = maxRight - bounds.right;
+            obj.set("left", obj.left! + delta);
+            obj.setCoords();
           });
           break;
         }
         case "top": {
-          const minTop = Math.min(...objects.map(o => o.top! - (o.height! * (o.originY === "center" ? 0.5 : 0))));
-          objects.forEach(o => {
-            const offset = o.originY === "center" ? o.height! / 2 : 0;
-            o.set("top", minTop + offset);
+          const minTop = Math.min(...objectBounds.map(o => o.bounds.top));
+          objectBounds.forEach(({ obj, bounds }) => {
+            const delta = minTop - bounds.top;
+            obj.set("top", obj.top! + delta);
+            obj.setCoords();
           });
           break;
         }
         case "center-v": {
-          const centerY = canvasHeight / 2;
-          objects.forEach(o => o.set("top", centerY));
+          objectBounds.forEach(({ obj, bounds }) => {
+            const targetCenterY = canvasHeight / 2;
+            const delta = targetCenterY - bounds.centerY;
+            obj.set("top", obj.top! + delta);
+            obj.setCoords();
+          });
           break;
         }
         case "bottom": {
-          const maxBottom = Math.max(...objects.map(o => o.top! + (o.height! * (o.originY === "center" ? 0.5 : 1))));
-          objects.forEach(o => {
-            const offset = o.originY === "center" ? o.height! / 2 : o.height!;
-            o.set("top", maxBottom - offset);
+          const maxBottom = Math.max(...objectBounds.map(o => o.bounds.bottom));
+          objectBounds.forEach(({ obj, bounds }) => {
+            const delta = maxBottom - bounds.bottom;
+            obj.set("top", obj.top! + delta);
+            obj.setCoords();
           });
           break;
         }
         case "distribute-h": {
           if (objects.length < 3) break;
-          const sorted = [...objects].sort((a, b) => a.left! - b.left!);
-          const firstLeft = sorted[0].left!;
-          const lastLeft = sorted[sorted.length - 1].left!;
-          const spacing = (lastLeft - firstLeft) / (objects.length - 1);
-          sorted.forEach((o, i) => o.set("left", firstLeft + spacing * i));
+          const sorted = [...objectBounds].sort((a, b) => a.bounds.centerX - b.bounds.centerX);
+          const firstCenterX = sorted[0].bounds.centerX;
+          const lastCenterX = sorted[sorted.length - 1].bounds.centerX;
+          const spacing = (lastCenterX - firstCenterX) / (objects.length - 1);
+          sorted.forEach(({ obj, bounds }, i) => {
+            const targetCenterX = firstCenterX + spacing * i;
+            const delta = targetCenterX - bounds.centerX;
+            obj.set("left", obj.left! + delta);
+            obj.setCoords();
+          });
           break;
         }
         case "distribute-v": {
           if (objects.length < 3) break;
-          const sorted = [...objects].sort((a, b) => a.top! - b.top!);
-          const firstTop = sorted[0].top!;
-          const lastTop = sorted[sorted.length - 1].top!;
-          const spacing = (lastTop - firstTop) / (objects.length - 1);
-          sorted.forEach((o, i) => o.set("top", firstTop + spacing * i));
+          const sorted = [...objectBounds].sort((a, b) => a.bounds.centerY - b.bounds.centerY);
+          const firstCenterY = sorted[0].bounds.centerY;
+          const lastCenterY = sorted[sorted.length - 1].bounds.centerY;
+          const spacing = (lastCenterY - firstCenterY) / (objects.length - 1);
+          sorted.forEach(({ obj, bounds }, i) => {
+            const targetCenterY = firstCenterY + spacing * i;
+            const delta = targetCenterY - bounds.centerY;
+            obj.set("top", obj.top! + delta);
+            obj.setCoords();
+          });
           break;
         }
       }
+
+      // Update selection after modifying objects
+      selection.setCoords();
     } else {
       // Single object - align to canvas
+      const bounds = getObjectBounds(activeObject);
+
       switch (type) {
-        case "left":
-          activeObject.set("left", activeObject.originX === "center" ? activeObject.width! / 2 : 0);
+        case "left": {
+          const delta = 0 - bounds.left;
+          activeObject.set("left", activeObject.left! + delta);
           break;
-        case "center-h":
-          activeObject.set("left", canvasWidth / 2);
+        }
+        case "center-h": {
+          const delta = canvasWidth / 2 - bounds.centerX;
+          activeObject.set("left", activeObject.left! + delta);
           break;
-        case "right":
-          activeObject.set("left", activeObject.originX === "center" ? canvasWidth - activeObject.width! / 2 : canvasWidth - activeObject.width!);
+        }
+        case "right": {
+          const delta = canvasWidth - bounds.right;
+          activeObject.set("left", activeObject.left! + delta);
           break;
-        case "top":
-          activeObject.set("top", activeObject.originY === "center" ? activeObject.height! / 2 : 0);
+        }
+        case "top": {
+          const delta = 0 - bounds.top;
+          activeObject.set("top", activeObject.top! + delta);
           break;
-        case "center-v":
-          activeObject.set("top", canvasHeight / 2);
+        }
+        case "center-v": {
+          const delta = canvasHeight / 2 - bounds.centerY;
+          activeObject.set("top", activeObject.top! + delta);
           break;
-        case "bottom":
-          activeObject.set("top", activeObject.originY === "center" ? canvasHeight - activeObject.height! / 2 : canvasHeight - activeObject.height!);
+        }
+        case "bottom": {
+          const delta = canvasHeight - bounds.bottom;
+          activeObject.set("top", activeObject.top! + delta);
           break;
+        }
       }
+
+      activeObject.setCoords();
     }
 
     canvas.renderAll();
@@ -2071,8 +2134,8 @@ export function ProjectEditor({
     <TooltipProvider delayDuration={300}>
       {/* Editor container - covers entire SidebarInset area */}
       <div className="absolute inset-0 z-50 flex flex-col bg-background">
-        {/* Editor header - simplified with right panel toggle */}
-        <header className="flex h-14 shrink-0 items-center justify-between border-b bg-background px-2 md:px-4">
+        {/* Editor header - glassmorphism styling */}
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/50 bg-background/80 backdrop-blur-xl px-2 md:px-4">
           {/* Left side - back + project name */}
           <div className="flex items-center gap-1 md:gap-2">
             <Button variant="ghost" size="icon" asChild>
@@ -2256,6 +2319,9 @@ export function ProjectEditor({
 
             <Separator orientation="vertical" className="mx-1 h-6 hidden lg:block" />
 
+            {/* Theme toggle */}
+            <ThemeToggle />
+
             {/* Mobile menu for zoom and other options */}
             <div className="sm:hidden">
               <DropdownMenu>
@@ -2307,24 +2373,44 @@ export function ProjectEditor({
 
         {/* Main content area with canvas and right panel */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Canvas area */}
+          {/* Canvas area - enhanced with gradient background */}
           <div
             ref={containerRef}
             className={cn(
-              "relative flex flex-1 items-center justify-center overflow-auto bg-muted/50 p-4",
-              isDragging && "ring-2 ring-inset ring-primary"
+              "relative flex flex-1 items-center justify-center overflow-auto p-4",
+              "bg-gradient-to-br from-orange-50/30 via-slate-50 to-amber-50/30 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950",
+              isDragging && "ring-2 ring-inset ring-orange-500"
             )}
+            style={{
+              backgroundImage: `
+                radial-gradient(circle at 20% 30%, rgba(249, 115, 22, 0.03) 0%, transparent 40%),
+                radial-gradient(circle at 80% 70%, rgba(251, 146, 60, 0.03) 0%, transparent 40%)
+              `,
+            }}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            {/* Canvas wrapper with zoom transform */}
+            {/* Subtle grid pattern */}
+            <div
+              className="absolute inset-0 opacity-[0.02] dark:opacity-[0.04]"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23000' fill-opacity='1'%3E%3Cpath d='M0 0h1v1H0zM39 0h1v1h-1zM0 39h1v1H0zM39 39h1v1h-1z'/%3E%3C/g%3E%3C/svg%3E")`,
+              }}
+            />
+
+            {/* Canvas wrapper with zoom transform and enhanced shadow */}
             <div
               data-tour="canvas"
-              className="relative shrink-0 overflow-hidden rounded-2xl shadow-2xl transition-transform duration-150"
+              className="relative shrink-0 overflow-hidden rounded-2xl shadow-2xl transition-all duration-200"
               style={{
                 width: canvasWidth * zoom,
                 height: canvasHeight * zoom,
+                boxShadow: `
+                  0 25px 50px -12px rgba(0, 0, 0, 0.25),
+                  0 0 0 1px rgba(255, 255, 255, 0.05),
+                  0 0 80px -20px rgba(249, 115, 22, 0.15)
+                `,
               }}
             >
               <div
@@ -2337,30 +2423,61 @@ export function ProjectEditor({
               >
                 <canvas ref={canvasRef} />
 
-                {/* Empty state overlay */}
+                {/* Empty state overlay - enhanced with gradient and animation */}
                 {!hasScreenshot && isCanvasReady && (
                   <div
-                    className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-4 bg-neutral-900/90 transition-colors hover:bg-neutral-900/80"
+                    className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-6 transition-all duration-300 group/empty"
+                    style={{
+                      background: `
+                        linear-gradient(135deg, rgba(10, 10, 10, 0.95) 0%, rgba(20, 20, 30, 0.95) 100%)
+                      `,
+                    }}
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-800">
-                      <Upload className="h-10 w-10 text-neutral-400" />
+                    {/* Animated background glow */}
+                    <div className="absolute inset-0 overflow-hidden">
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-orange-500/10 rounded-full blur-[100px] group-hover/empty:scale-110 transition-transform duration-700" />
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] bg-amber-500/10 rounded-full blur-[80px] group-hover/empty:scale-125 transition-transform duration-500" />
                     </div>
-                    <div className="text-center">
-                      <p className="text-lg font-medium text-white">Drop screenshot here</p>
+
+                    {/* Upload icon with animated border */}
+                    <div className="relative">
+                      <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 opacity-50 blur group-hover/empty:opacity-75 transition-opacity" />
+                      <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-neutral-800 to-neutral-900 border border-white/10">
+                        <Upload className="h-10 w-10 text-orange-400 group-hover/empty:scale-110 transition-transform" />
+                      </div>
+                    </div>
+
+                    <div className="relative text-center">
+                      <p className="text-xl font-semibold text-white mb-1">Drop screenshot here</p>
                       <p className="text-sm text-neutral-400">
-                        or click to browse
+                        or <span className="text-orange-400 group-hover/empty:text-orange-300 transition-colors">click to browse</span>
                       </p>
+                    </div>
+
+                    {/* Hint badges */}
+                    <div className="relative flex gap-2 mt-2">
+                      <span className="px-3 py-1 text-xs rounded-full bg-white/5 text-neutral-400 border border-white/10">
+                        PNG, JPG
+                      </span>
+                      <span className="px-3 py-1 text-xs rounded-full bg-white/5 text-neutral-400 border border-white/10">
+                        Drag & Drop
+                      </span>
                     </div>
                   </div>
                 )}
 
-                {/* Drag overlay */}
+                {/* Drag overlay - enhanced with animated border */}
                 {isDragging && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-primary/20 backdrop-blur-sm">
-                    <div className="flex flex-col items-center gap-2 text-primary">
-                      <Upload className="h-12 w-12" />
-                      <p className="text-lg font-semibold">Drop to add screenshot</p>
+                  <div className="absolute inset-0 flex items-center justify-center backdrop-blur-sm bg-orange-500/10">
+                    {/* Animated dashed border */}
+                    <div className="absolute inset-4 rounded-2xl border-2 border-dashed border-orange-500/50" />
+
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-orange-500/20 backdrop-blur-sm">
+                        <Upload className="h-8 w-8 text-orange-400" />
+                      </div>
+                      <p className="text-lg font-semibold text-white">Drop to add screenshot</p>
                     </div>
                   </div>
                 )}
@@ -2377,7 +2494,7 @@ export function ProjectEditor({
 
           {/* Right Panel - desktop only */}
           {showRightPanel && (
-            <div data-tour="right-panel">
+            <div data-tour="right-panel" className="h-full overflow-hidden">
               <RightPanel
                 deviceType={project.deviceType as "iphone" | "android"}
               selectedDevice={selectedDevice}
@@ -2409,8 +2526,8 @@ export function ProjectEditor({
           )}
         </div>
 
-        {/* Preview strip at bottom */}
-        <div data-tour="preview-strip" className="flex items-center border-t bg-background">
+        {/* Preview strip at bottom - glassmorphism styling */}
+        <div data-tour="preview-strip" className="flex items-center border-t border-border/50 bg-background/80 backdrop-blur-xl">
           <PreviewStrip
             projectId={project.id}
             previews={previews}

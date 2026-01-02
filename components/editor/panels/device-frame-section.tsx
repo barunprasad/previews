@@ -157,7 +157,7 @@ export function DeviceFrameSection({
                 >
                   {/* Screen area */}
                   <div
-                    className="bg-gradient-to-br from-blue-500 to-purple-600"
+                    className="bg-gradient-to-br from-orange-500 to-amber-500"
                     style={{
                       width: `calc(100% - ${(mockup.bezel.left + mockup.bezel.right) / 3}px)`,
                       height: `calc(100% - ${(mockup.bezel.top + mockup.bezel.bottom) / 3}px)`,

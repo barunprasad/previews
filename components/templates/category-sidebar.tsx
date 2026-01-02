@@ -43,7 +43,7 @@ export function CategorySidebar({
 }: CategorySidebarProps) {
   return (
     <div className="space-y-4">
-      <div>
+      <div className="sticky top-0 bg-muted/30 pb-2">
         <h2 className="text-lg font-semibold">Categories</h2>
         <p className="text-sm text-muted-foreground">
           Filter by app type

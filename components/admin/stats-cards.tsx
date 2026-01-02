@@ -41,8 +41,8 @@ export function StatsCards({ stats }: StatsCardsProps) {
       change: null,
       changeLabel: "",
       icon: Image,
-      color: "text-purple-500",
-      bgColor: "bg-purple-500/10",
+      color: "text-orange-500",
+      bgColor: "bg-orange-500/10",
     },
     {
       title: "Avg Previews/Project",

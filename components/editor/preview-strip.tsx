@@ -195,7 +195,11 @@ export function PreviewStrip({
   const canDelete = previews.length > 1;
 
   return (
-    <div className="flex h-24 flex-1 shrink-0 items-center gap-2 overflow-x-auto bg-background px-4">
+    <div className="flex h-24 flex-1 shrink-0 items-center gap-3 overflow-x-auto px-4">
+      {/* Fade edges for scroll indication */}
+      <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background to-transparent z-10" />
+      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent z-10" />
+
       {/* Preview thumbnails */}
       {previews.map((preview, index) => {
         const isActive = preview.id === activePreviewId;
@@ -207,17 +211,28 @@ export function PreviewStrip({
         return (
           <div
             key={preview.id}
-            className="relative shrink-0"
+            className="relative shrink-0 group"
             onMouseEnter={() => setHoveredId(preview.id)}
             onMouseLeave={() => setHoveredId(null)}
           >
+            {/* Active glow effect */}
+            {isActive && (
+              <div className="absolute -inset-1 rounded-lg bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 opacity-50 blur-sm" />
+            )}
+
+            {/* Hover glow effect */}
+            {isHovered && !isActive && (
+              <div className="absolute -inset-0.5 rounded-lg bg-orange-500/20 blur-sm transition-opacity" />
+            )}
+
             <button
               onClick={() => onPreviewSelect(preview)}
               className={cn(
-                "relative h-16 w-12 overflow-hidden rounded-lg border-2 transition-all",
+                "relative h-16 w-12 overflow-hidden rounded-lg transition-all duration-200",
                 isActive
-                  ? "border-primary ring-2 ring-primary/20"
-                  : "border-border hover:border-primary/50"
+                  ? "ring-2 ring-orange-500 shadow-lg shadow-orange-500/25"
+                  : "ring-1 ring-border/50 hover:ring-orange-500/50 hover:shadow-md",
+                "bg-neutral-900"
               )}
               disabled={isLoading}
             >
@@ -225,7 +240,10 @@ export function PreviewStrip({
                 <img
                   src={preview.thumbnailUrl}
                   alt={preview.name}
-                  className="h-full w-full object-cover"
+                  className={cn(
+                    "h-full w-full object-cover transition-transform duration-200",
+                    isHovered && "scale-105"
+                  )}
                 />
               ) : (
                 <div
@@ -236,20 +254,25 @@ export function PreviewStrip({
                 />
               )}
 
-              {/* Preview number badge */}
-              <div className="absolute bottom-0.5 left-0.5 flex h-4 w-4 items-center justify-center rounded bg-black/70 text-[10px] font-medium text-white">
+              {/* Preview number badge - enhanced */}
+              <div className={cn(
+                "absolute bottom-0.5 left-0.5 flex h-4 min-w-4 items-center justify-center rounded px-1 text-[10px] font-semibold transition-colors",
+                isActive
+                  ? "bg-orange-500 text-white"
+                  : "bg-black/60 text-white/80 backdrop-blur-sm"
+              )}>
                 {index + 1}
               </div>
 
               {/* Loading overlay */}
               {isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-lg">
+                  <Loader2 className="h-4 w-4 animate-spin text-orange-400" />
                 </div>
               )}
             </button>
 
-            {/* Action buttons - show on hover */}
+            {/* Action buttons - show on hover with enhanced styling */}
             {isHovered && !isLoading && (
               <>
                 {/* Duplicate button */}
@@ -257,7 +280,7 @@ export function PreviewStrip({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
-                        className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform hover:scale-110"
+                        className="absolute -left-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30 transition-all hover:scale-110 hover:shadow-orange-500/50"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDuplicatePreview(preview);
@@ -275,13 +298,13 @@ export function PreviewStrip({
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <button
-                        className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow-sm transition-transform hover:scale-110"
+                        className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-lg shadow-red-500/30 transition-all hover:scale-110 hover:bg-red-600"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent>
+                    <AlertDialogContent className="border-0 bg-card/95 backdrop-blur-xl shadow-2xl">
                       <AlertDialogHeader>
                         <AlertDialogTitle>Delete Preview</AlertDialogTitle>
                         <AlertDialogDescription>
@@ -289,10 +312,10 @@ export function PreviewStrip({
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={() => handleDeletePreview(preview.id)}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          className="rounded-xl bg-red-500 text-white hover:bg-red-600"
                         >
                           Delete
                         </AlertDialogAction>
@@ -306,21 +329,25 @@ export function PreviewStrip({
         );
       })}
 
-      {/* Add preview button */}
+      {/* Add preview button - enhanced */}
       {canAddMore && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="outline"
               size="icon"
-              className="h-16 w-12 shrink-0 border-dashed"
+              className={cn(
+                "h-16 w-12 shrink-0 rounded-lg border-2 border-dashed transition-all duration-200",
+                "border-muted-foreground/30 hover:border-orange-500/50 hover:bg-orange-500/5",
+                "group/add"
+              )}
               onClick={handleCreatePreview}
               disabled={isCreating}
             >
               {isCreating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
               ) : (
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4 text-muted-foreground group-hover/add:text-orange-500 transition-colors" />
               )}
             </Button>
           </TooltipTrigger>
@@ -330,9 +357,9 @@ export function PreviewStrip({
         </Tooltip>
       )}
 
-      {/* Max reached indicator */}
+      {/* Max reached indicator - enhanced */}
       {!canAddMore && (
-        <div className="shrink-0 px-2 text-xs text-muted-foreground">
+        <div className="shrink-0 px-3 py-1.5 text-xs text-muted-foreground rounded-full bg-muted/50">
           Max {MAX_PREVIEWS_PER_PROJECT} previews
         </div>
       )}

@@ -113,19 +113,21 @@ export function RightPanel({
   onLayerAction,
 }: RightPanelProps) {
   return (
-    <aside className="hidden w-80 shrink-0 border-l bg-muted/30 lg:block overflow-y-auto">
+    <aside className="hidden w-80 shrink-0 lg:flex lg:flex-col h-full overflow-y-auto bg-background/80 backdrop-blur-xl border-l border-border/50 dark:border-white/10">
       <Accordion
         type="multiple"
         defaultValue={["device", "background", "text-style"]}
         className="w-full"
       >
         {/* Device Section - Global/Project-wide setting */}
-        <AccordionItem value="device" className="border-b">
-          <AccordionTrigger className="px-4 hover:no-underline">
+        <AccordionItem value="device" className="border-b border-white/10 dark:border-white/5">
+          <AccordionTrigger className="px-4 hover:no-underline hover:bg-white/10 dark:hover:bg-white/5 transition-colors">
             <div className="flex items-center gap-2">
-              <Smartphone className="h-4 w-4" />
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-r from-[var(--accent-orange)] to-[var(--accent-amber)] text-white">
+                <Smartphone className="h-3.5 w-3.5" />
+              </div>
               <span className="text-sm font-medium">Export Size</span>
-              <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              <span className="ml-auto rounded-full bg-[var(--accent-orange)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--accent-orange)]">
                 All Previews
               </span>
             </div>
@@ -141,13 +143,15 @@ export function RightPanel({
         </AccordionItem>
 
         {/* Device Frame Section */}
-        <AccordionItem value="device-frame" className="border-b">
-          <AccordionTrigger className="px-4 hover:no-underline">
+        <AccordionItem value="device-frame" className="border-b border-white/10 dark:border-white/5">
+          <AccordionTrigger className="px-4 hover:no-underline hover:bg-white/10 dark:hover:bg-white/5 transition-colors">
             <div className="flex items-center gap-2">
-              <Frame className="h-4 w-4" />
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-r from-[var(--accent-coral)] to-[var(--accent-rose)] text-white">
+                <Frame className="h-3.5 w-3.5" />
+              </div>
               <span className="text-sm font-medium">Device Frame</span>
               {(currentDeviceMockup || currentBezel) && (
-                <span className="ml-auto text-xs text-muted-foreground">
+                <span className="ml-auto text-xs text-muted-foreground truncate max-w-[100px]">
                   {currentBezel ? `${currentBezel.name}` : currentDeviceMockup?.name}
                 </span>
               )}
@@ -166,10 +170,12 @@ export function RightPanel({
         </AccordionItem>
 
         {/* Background Section */}
-        <AccordionItem value="background" className="border-b">
-          <AccordionTrigger className="px-4 hover:no-underline">
+        <AccordionItem value="background" className="border-b border-white/10 dark:border-white/5">
+          <AccordionTrigger className="px-4 hover:no-underline hover:bg-white/10 dark:hover:bg-white/5 transition-colors">
             <div className="flex items-center gap-2">
-              <Palette className="h-4 w-4" />
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-r from-[var(--accent-amber)] to-[var(--accent-gold)] text-white">
+                <Palette className="h-3.5 w-3.5" />
+              </div>
               <span className="text-sm font-medium">Background</span>
             </div>
           </AccordionTrigger>
@@ -183,10 +189,12 @@ export function RightPanel({
 
         {/* Text Style Section - only shown when text is selected */}
         {selectedTextStyle && (
-          <AccordionItem value="text-style" className="border-b">
-            <AccordionTrigger className="px-4 hover:no-underline">
+          <AccordionItem value="text-style" className="border-b border-white/10 dark:border-white/5">
+            <AccordionTrigger className="px-4 hover:no-underline hover:bg-white/10 dark:hover:bg-white/5 transition-colors">
               <div className="flex items-center gap-2">
-                <Pencil className="h-4 w-4" />
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-r from-[var(--accent-orange)] to-[var(--accent-coral)] text-white">
+                  <Pencil className="h-3.5 w-3.5" />
+                </div>
                 <span className="text-sm font-medium">Text Style</span>
               </div>
             </AccordionTrigger>
@@ -201,10 +209,12 @@ export function RightPanel({
 
         {/* Alignment Section - only shown when object is selected */}
         {hasSelection && onAlign && (
-          <AccordionItem value="alignment" className="border-b">
-            <AccordionTrigger className="px-4 hover:no-underline">
+          <AccordionItem value="alignment" className="border-b border-white/10 dark:border-white/5">
+            <AccordionTrigger className="px-4 hover:no-underline hover:bg-white/10 dark:hover:bg-white/5 transition-colors">
               <div className="flex items-center gap-2">
-                <AlignCenter className="h-4 w-4" />
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-r from-[var(--accent-gold)] to-[var(--accent-amber)] text-white">
+                  <AlignCenter className="h-3.5 w-3.5" />
+                </div>
                 <span className="text-sm font-medium">Alignment</span>
               </div>
             </AccordionTrigger>
@@ -219,10 +229,12 @@ export function RightPanel({
 
         {/* Layer Section - only shown when object is selected */}
         {hasSelection && onLayerAction && (
-          <AccordionItem value="layers" className="border-b">
-            <AccordionTrigger className="px-4 hover:no-underline">
+          <AccordionItem value="layers" className="border-b border-white/10 dark:border-white/5">
+            <AccordionTrigger className="px-4 hover:no-underline hover:bg-white/10 dark:hover:bg-white/5 transition-colors">
               <div className="flex items-center gap-2">
-                <Layers className="h-4 w-4" />
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-r from-[var(--accent-coral)] to-[var(--accent-orange)] text-white">
+                  <Layers className="h-3.5 w-3.5" />
+                </div>
                 <span className="text-sm font-medium">Layers</span>
               </div>
             </AccordionTrigger>
@@ -233,10 +245,12 @@ export function RightPanel({
         )}
 
         {/* Add Text Section */}
-        <AccordionItem value="text" className="border-b">
-          <AccordionTrigger className="px-4 hover:no-underline">
+        <AccordionItem value="text" className="border-b border-white/10 dark:border-white/5">
+          <AccordionTrigger className="px-4 hover:no-underline hover:bg-white/10 dark:hover:bg-white/5 transition-colors">
             <div className="flex items-center gap-2">
-              <Type className="h-4 w-4" />
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-r from-[var(--accent-amber)] to-[var(--accent-gold)] text-white">
+                <Type className="h-3.5 w-3.5" />
+              </div>
               <span className="text-sm font-medium">Add Text</span>
             </div>
           </AccordionTrigger>
@@ -246,10 +260,12 @@ export function RightPanel({
         </AccordionItem>
 
         {/* Screenshot Section */}
-        <AccordionItem value="screenshot" className="border-b">
-          <AccordionTrigger className="px-4 hover:no-underline">
+        <AccordionItem value="screenshot" className="border-b border-white/10 dark:border-white/5">
+          <AccordionTrigger className="px-4 hover:no-underline hover:bg-white/10 dark:hover:bg-white/5 transition-colors">
             <div className="flex items-center gap-2">
-              <ImagePlus className="h-4 w-4" />
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-r from-[var(--accent-rose)] to-[var(--accent-orange)] text-white">
+                <ImagePlus className="h-3.5 w-3.5" />
+              </div>
               <span className="text-sm font-medium">Screenshot</span>
             </div>
           </AccordionTrigger>
@@ -265,10 +281,12 @@ export function RightPanel({
         </AccordionItem>
 
         {/* Templates Section */}
-        <AccordionItem value="templates" className="border-b">
-          <AccordionTrigger className="px-4 hover:no-underline">
+        <AccordionItem value="templates" className="border-b border-white/10 dark:border-white/5">
+          <AccordionTrigger className="px-4 hover:no-underline hover:bg-white/10 dark:hover:bg-white/5 transition-colors">
             <div className="flex items-center gap-2">
-              <LayoutTemplate className="h-4 w-4" />
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-r from-[var(--accent-gold)] to-[var(--accent-coral)] text-white">
+                <LayoutTemplate className="h-3.5 w-3.5" />
+              </div>
               <span className="text-sm font-medium">Templates</span>
             </div>
           </AccordionTrigger>
