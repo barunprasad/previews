@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { isAdminEmail } from "@/lib/supabase/admin";
+import { isCurrentUserAdmin } from "@/lib/supabase/admin";
 import { AdminHeader } from "@/components/admin/admin-header";
 
 export default async function AdminLayout({
@@ -8,15 +7,10 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // Check if user is admin based on their profile role
+  const isAdmin = await isCurrentUserAdmin();
 
-  if (!user) {
-    redirect("/login");
-  }
-
-  // Additional server-side admin check (middleware already handles this)
-  if (!isAdminEmail(user.email)) {
+  if (!isAdmin) {
     redirect("/dashboard");
   }
 

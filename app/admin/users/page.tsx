@@ -1,8 +1,8 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { UsersTable } from "@/components/admin/users-table";
 
 async function getAllUsers() {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   // Get all users from profiles
   const { data: profiles, error } = await supabase

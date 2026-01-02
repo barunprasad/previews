@@ -1,8 +1,8 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { ProjectsTable } from "@/components/admin/projects-table";
 
 async function getAllProjects() {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   // Get all projects with user info and preview counts
   const { data: projects, error } = await supabase

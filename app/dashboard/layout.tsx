@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdminEmail } from "@/lib/supabase/admin";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 
 export default async function DashboardLayout({
@@ -15,10 +14,10 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Get user profile data
+  // Get user profile data including role
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, avatar_url")
+    .select("full_name, avatar_url, role")
     .eq("id", user.id)
     .single();
 
@@ -26,7 +25,7 @@ export default async function DashboardLayout({
     email: user.email || "",
     fullName: profile?.full_name || null,
     avatarUrl: profile?.avatar_url || null,
-    isAdmin: isAdminEmail(user.email),
+    isAdmin: profile?.role === "admin",
   };
 
   return (
