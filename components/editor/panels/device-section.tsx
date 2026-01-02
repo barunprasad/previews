@@ -21,7 +21,7 @@ export function DeviceSection({
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        {deviceType === "iphone" ? "iPhone" : "Android"} devices
+        Target resolution for App Store export. Applies to all previews in this project.
       </p>
       <RadioGroup
         value={selectedDevice.id}

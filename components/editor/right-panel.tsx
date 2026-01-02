@@ -103,12 +103,15 @@ export function RightPanel({
         defaultValue={["device", "background", "text-style"]}
         className="w-full"
       >
-        {/* Device Section */}
+        {/* Device Section - Global/Project-wide setting */}
         <AccordionItem value="device" className="border-b">
           <AccordionTrigger className="px-4 hover:no-underline">
             <div className="flex items-center gap-2">
               <Smartphone className="h-4 w-4" />
-              <span className="text-sm font-medium">Device</span>
+              <span className="text-sm font-medium">Export Size</span>
+              <span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                All Previews
+              </span>
             </div>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4">

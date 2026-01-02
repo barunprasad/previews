@@ -1303,13 +1303,13 @@ export function ProjectEditor({
     return deviceGroup;
   }, [createDeviceFrameWithBezel]);
 
-  // Apply SVG bezel to all previews
+  // Apply SVG bezel to the current preview only
   const applyBezel = useCallback(async (bezel: BezelConfig) => {
-    if (!fabricRef.current) return;
+    if (!fabricRef.current || !activePreview) return;
 
     const canvas = fabricRef.current;
 
-    // Apply to current canvas
+    // Apply bezel only to the current canvas/preview
     const currentGroup = await applyBezelToCanvas(canvas, bezel);
 
     if (!currentGroup) {
@@ -1320,57 +1320,26 @@ export function ProjectEditor({
     canvas.setActiveObject(currentGroup);
     deviceFrameRef.current = currentGroup;
 
-    // Save current canvas state
+    // Save current canvas state (only for this preview)
     const currentCanvasJson = canvas.toJSON();
 
-    // Apply to all other previews
-    const updatedPreviews = await Promise.all(
-      previews.map(async (preview) => {
-        if (preview.id === activePreview?.id) {
-          return {
-            ...preview,
-            canvasJson: currentCanvasJson,
-          };
-        }
-
-        // For other previews, load their canvas, apply bezel, and save
-        if (preview.canvasJson) {
-          const offscreenEl = document.createElement("canvas");
-          offscreenEl.width = canvasWidth;
-          offscreenEl.height = canvasHeight;
-          const tempCanvas = new Canvas(offscreenEl, {
-            width: canvasWidth,
-            height: canvasHeight,
-          });
-
-          try {
-            await tempCanvas.loadFromJSON(preview.canvasJson);
-            const group = await applyBezelToCanvas(tempCanvas, bezel);
-
-            if (group) {
-              const updatedJson = tempCanvas.toJSON();
-              tempCanvas.dispose();
-              return {
-                ...preview,
-                canvasJson: updatedJson,
-              };
-            }
-          } catch (error) {
-            console.error("Error applying bezel to preview:", error);
-          }
-          tempCanvas.dispose();
-        }
-
-        return preview;
-      })
-    );
+    // Update only the active preview
+    const updatedPreviews = previews.map((preview) => {
+      if (preview.id === activePreview.id) {
+        return {
+          ...preview,
+          canvasJson: currentCanvasJson,
+        };
+      }
+      return preview;
+    });
 
     setPreviews(updatedPreviews);
     setCurrentBezel(bezel);
     setCurrentMockup(null); // Clear programmatic mockup when using bezel
     canvas.renderAll();
-    toast.success("Device bezel applied to all previews");
-  }, [applyBezelToCanvas, previews, activePreview, canvasWidth, canvasHeight]);
+    toast.success(`Device bezel applied to "${activePreview.name}"`);
+  }, [applyBezelToCanvas, previews, activePreview]);
 
   // Apply device mockup to the current canvas
   const applyDeviceMockupToCanvas = useCallback((canvas: Canvas, mockup: DeviceMockup): Group | null => {
@@ -1438,13 +1407,13 @@ export function ProjectEditor({
     return deviceGroup;
   }, [createDeviceFrameGroup]);
 
-  // Apply device mockup to all previews
+  // Apply device mockup to the current preview only
   const applyDeviceMockup = useCallback(async (mockup: DeviceMockup) => {
-    if (!fabricRef.current) return;
+    if (!fabricRef.current || !activePreview) return;
 
     const canvas = fabricRef.current;
 
-    // Apply to current canvas (handles existing frame removal internally)
+    // Apply to current canvas only (handles existing frame removal internally)
     const currentGroup = applyDeviceMockupToCanvas(canvas, mockup);
 
     if (!currentGroup) {
@@ -1455,61 +1424,27 @@ export function ProjectEditor({
     canvas.setActiveObject(currentGroup);
     deviceFrameRef.current = currentGroup;
 
-    // Save current canvas state
+    // Save current canvas state (only for this preview)
     const currentCanvasJson = canvas.toJSON();
 
-    // Apply to all other previews
-    const updatedPreviews = await Promise.all(
-      previews.map(async (preview) => {
-        if (preview.id === activePreview?.id) {
-          // Current preview - already updated
-          return {
-            ...preview,
-            canvasJson: currentCanvasJson,
-          };
-        }
-
-        // For other previews, load their canvas, apply frame, and save
-        if (preview.canvasJson) {
-          // Create an offscreen canvas element
-          const offscreenEl = document.createElement("canvas");
-          offscreenEl.width = canvasWidth;
-          offscreenEl.height = canvasHeight;
-          const tempCanvas = new Canvas(offscreenEl, {
-            width: canvasWidth,
-            height: canvasHeight,
-          });
-
-          try {
-            await tempCanvas.loadFromJSON(preview.canvasJson);
-            const group = applyDeviceMockupToCanvas(tempCanvas, mockup);
-
-            if (group) {
-              const updatedJson = tempCanvas.toJSON();
-              tempCanvas.dispose();
-              return {
-                ...preview,
-                canvasJson: updatedJson,
-              };
-            }
-          } catch (error) {
-            console.error(`Failed to apply frame to preview ${preview.id}:`, error);
-          }
-
-          tempCanvas.dispose();
-        }
-
-        return preview;
-      })
-    );
+    // Update only the active preview
+    const updatedPreviews = previews.map((preview) => {
+      if (preview.id === activePreview.id) {
+        return {
+          ...preview,
+          canvasJson: currentCanvasJson,
+        };
+      }
+      return preview;
+    });
 
     setPreviews(updatedPreviews);
     setCurrentMockup(mockup);
     setCurrentBezel(null); // Clear bezel when applying programmatic mockup
     canvas.renderAll();
     markAllDirty();
-    toast.success(`${mockup.name} frame applied to all previews`);
-  }, [markAllDirty, applyDeviceMockupToCanvas, previews, activePreview, canvasWidth, canvasHeight]);
+    toast.success(`${mockup.name} frame applied to "${activePreview.name}"`);
+  }, [markAllDirty, applyDeviceMockupToCanvas, previews, activePreview]);
 
   // Apply template to canvas
   const handleApplyTemplate = useCallback(
