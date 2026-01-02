@@ -91,6 +91,9 @@ interface RightPanelProps {
 
   // Layer props
   onLayerAction?: (action: LayerAction) => void;
+
+  // Mobile prop - when true, renders without hidden classes
+  isMobile?: boolean;
 }
 
 // Quick action button component
@@ -157,6 +160,7 @@ export function RightPanel({
   hasMultipleSelection,
   onAlign,
   onLayerAction,
+  isMobile = false,
 }: RightPanelProps) {
   // Recent colors hook
   const { recentColors, addRecentColor } = useRecentColors();
@@ -172,7 +176,12 @@ export function RightPanel({
   };
 
   return (
-    <aside className="hidden w-80 shrink-0 lg:flex lg:flex-col h-full overflow-hidden bg-background/80 backdrop-blur-xl border-l border-border/50 dark:border-white/10">
+    <aside className={cn(
+      "shrink-0 flex flex-col h-full overflow-hidden bg-background/80 backdrop-blur-xl",
+      isMobile
+        ? "w-full border-0"
+        : "hidden w-80 lg:flex border-l border-border/50 dark:border-white/10"
+    )}>
       {/* Quick Actions Toolbar */}
       <div className="shrink-0 border-b border-white/10 dark:border-white/5 p-3">
         <div className="flex items-center justify-between">

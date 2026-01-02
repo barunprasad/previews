@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Upload, Loader2, Trash2, Save, Download, Undo2, Redo2, MoreHorizontal, ZoomIn, ZoomOut, Maximize, PanelRight, Package, ChevronDown, Smartphone, Eye } from "lucide-react";
+import { ArrowLeft, Upload, Loader2, Trash2, Save, Download, Undo2, Redo2, MoreHorizontal, ZoomIn, ZoomOut, Maximize, PanelRight, Package, ChevronDown, Smartphone, Eye, SlidersHorizontal } from "lucide-react";
 import { Canvas, FabricImage, FabricText, IText, Gradient, Rect, Group, Shadow, ActiveSelection, FabricObject } from "fabric";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -30,6 +30,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { createClient } from "@/lib/supabase/client";
 import { PreviewStrip } from "@/components/editor/preview-strip";
 import { AppStorePreview } from "@/components/editor/app-store-preview";
@@ -98,6 +105,9 @@ export function ProjectEditor({
 
   // Right panel visibility (desktop only, always visible by default)
   const [showRightPanel, setShowRightPanel] = useState(true);
+
+  // Mobile panel sheet
+  const [showMobilePanel, setShowMobilePanel] = useState(false);
 
   // Onboarding state
   const {
@@ -2158,8 +2168,8 @@ export function ProjectEditor({
                 <span className="sr-only">Back to projects</span>
               </Link>
             </Button>
-            <div className="ml-1 md:ml-2">
-              <h1 className="text-sm font-semibold truncate max-w-[120px] sm:max-w-[200px] md:max-w-none">{project.name}</h1>
+            <div className="ml-1 md:ml-2 hidden sm:block">
+              <h1 className="text-sm font-semibold truncate max-w-[200px] md:max-w-none">{project.name}</h1>
             </div>
           </div>
 
@@ -2173,7 +2183,7 @@ export function ProjectEditor({
           />
 
           {/* Right side - controls */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 min-w-0 overflow-x-auto">
             {/* Undo/Redo */}
             <Tooltip>
               <TooltipTrigger asChild>
@@ -2361,6 +2371,11 @@ export function ProjectEditor({
                   <DropdownMenuItem onClick={handleFitToScreen}>
                     <Maximize className="h-4 w-4" />
                     Fit to Screen
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setShowMobilePanel(true)}>
+                    <SlidersHorizontal className="h-4 w-4" />
+                    Controls Panel
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -2602,6 +2617,48 @@ export function ProjectEditor({
           canvasHeight={canvasHeight}
           deviceType={project.deviceType as "iphone" | "android"}
         />
+
+        {/* Mobile controls panel sheet */}
+        <Sheet open={showMobilePanel} onOpenChange={setShowMobilePanel}>
+          <SheetContent side="right" className="w-[320px] p-0 overflow-hidden">
+            <SheetHeader className="px-4 py-3 border-b">
+              <SheetTitle>Controls</SheetTitle>
+              <SheetDescription className="sr-only">
+                Editor controls for device, background, text, and more
+              </SheetDescription>
+            </SheetHeader>
+            <div className="h-[calc(100vh-57px)] overflow-y-auto">
+              <RightPanel
+                deviceType={project.deviceType as "iphone" | "android"}
+                selectedDevice={selectedDevice}
+                devices={allDevices}
+                onDeviceChange={handleDeviceChange}
+                background={background}
+                onBackgroundChange={setBackground}
+                onAddText={handleAddText}
+                selectedTextStyle={selectedTextStyle}
+                onTextStyleChange={handleTextStyleChange}
+                onUploadScreenshot={() => fileInputRef.current?.click()}
+                hasSelectedImage={hasSelectedImage}
+                onRemoveBackground={handleRemoveBackground}
+                isRemovingBackground={isRemovingBackground}
+                backgroundRemovalProgress={backgroundRemovalProgress}
+                onApplyTemplate={handleApplyTemplate}
+                currentDeviceMockup={currentMockup}
+                onApplyDeviceFrame={applyDeviceMockup}
+                onRemoveDeviceFrame={removeDeviceFrame}
+                hasScreenshot={hasScreenshot}
+                currentBezel={currentBezel}
+                onApplyBezel={applyBezel}
+                hasSelection={hasSelection}
+                hasMultipleSelection={hasMultipleSelection}
+                onAlign={handleAlign}
+                onLayerAction={handleLayerAction}
+                isMobile
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
 
         {/* App Store Preview overlay */}
         {isAppStorePreviewOpen && (
