@@ -38,6 +38,9 @@ import { uploadToCloudinary } from "@/lib/cloudinary/upload";
 import type { Project, DeviceFrame, Preview, PreviewTemplate, TemplateSet } from "@/types";
 import { cn } from "@/lib/utils";
 import { findReplaceableObjects, replaceScreenshot, type FabricImageWithData } from "@/lib/templates/replacement";
+import { useOnboarding } from "@/hooks/use-onboarding";
+import { WelcomeModal } from "@/components/onboarding/welcome-modal";
+import { EditorTour } from "@/components/onboarding/editor-tour";
 
 // Zoom levels
 const ZOOM_MIN = 0.1;
@@ -94,6 +97,24 @@ export function ProjectEditor({
 
   // Right panel visibility (desktop only, always visible by default)
   const [showRightPanel, setShowRightPanel] = useState(true);
+
+  // Onboarding state
+  const {
+    hasSeenOnboarding,
+    hasCompletedTour,
+    isLoaded: isOnboardingLoaded,
+    completeOnboarding,
+    completeTour,
+  } = useOnboarding();
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [showTour, setShowTour] = useState(false);
+
+  // Show welcome modal for first-time users
+  useEffect(() => {
+    if (isOnboardingLoaded && !hasSeenOnboarding) {
+      setShowWelcome(true);
+    }
+  }, [isOnboardingLoaded, hasSeenOnboarding]);
 
   // Get all devices for the current device type
   const allDevices = getDevicesByType(project.deviceType as "iphone" | "android");
@@ -2176,6 +2197,7 @@ export function ProjectEditor({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
+                  data-tour="save"
                   variant="ghost"
                   size="icon"
                   onClick={handleSave}
@@ -2203,6 +2225,7 @@ export function ProjectEditor({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
+                  data-tour="export"
                   variant="ghost"
                   size="sm"
                   disabled={!hasScreenshot && previews.length === 0}
@@ -2297,6 +2320,7 @@ export function ProjectEditor({
           >
             {/* Canvas wrapper with zoom transform */}
             <div
+              data-tour="canvas"
               className="relative shrink-0 overflow-hidden rounded-2xl shadow-2xl transition-transform duration-150"
               style={{
                 width: canvasWidth * zoom,
@@ -2353,8 +2377,9 @@ export function ProjectEditor({
 
           {/* Right Panel - desktop only */}
           {showRightPanel && (
-            <RightPanel
-              deviceType={project.deviceType as "iphone" | "android"}
+            <div data-tour="right-panel">
+              <RightPanel
+                deviceType={project.deviceType as "iphone" | "android"}
               selectedDevice={selectedDevice}
               devices={allDevices}
               onDeviceChange={handleDeviceChange}
@@ -2379,12 +2404,13 @@ export function ProjectEditor({
               hasMultipleSelection={hasMultipleSelection}
               onAlign={handleAlign}
               onLayerAction={handleLayerAction}
-            />
+              />
+            </div>
           )}
         </div>
 
         {/* Preview strip at bottom */}
-        <div className="flex items-center border-t bg-background">
+        <div data-tour="preview-strip" className="flex items-center border-t bg-background">
           <PreviewStrip
             projectId={project.id}
             previews={previews}
@@ -2442,6 +2468,27 @@ export function ProjectEditor({
             onClose={() => setIsAppStorePreviewOpen(false)}
           />
         )}
+
+        {/* Onboarding */}
+        <WelcomeModal
+          open={showWelcome}
+          onClose={() => {
+            setShowWelcome(false);
+            completeOnboarding();
+          }}
+          onStartTour={() => {
+            setShowWelcome(false);
+            completeOnboarding();
+            setShowTour(true);
+          }}
+        />
+        <EditorTour
+          isActive={showTour}
+          onComplete={() => {
+            setShowTour(false);
+            completeTour();
+          }}
+        />
       </div>
     </TooltipProvider>
   );
