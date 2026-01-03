@@ -11,6 +11,33 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
+/**
+ * Convert any color format (rgba, rgb, hex) to #rrggbb format
+ * Required for HTML color input which only accepts hex
+ */
+function toHexColor(color: string): string {
+  // Already hex format
+  if (color.startsWith("#")) {
+    // Expand shorthand (#fff -> #ffffff)
+    if (color.length === 4) {
+      return `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`;
+    }
+    return color.slice(0, 7); // Strip alpha if present (#rrggbbaa -> #rrggbb)
+  }
+
+  // Parse rgb/rgba
+  const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (match) {
+    const r = parseInt(match[1]).toString(16).padStart(2, "0");
+    const g = parseInt(match[2]).toString(16).padStart(2, "0");
+    const b = parseInt(match[3]).toString(16).padStart(2, "0");
+    return `#${r}${g}${b}`;
+  }
+
+  // Fallback to black
+  return "#000000";
+}
+
 const TEXT_COLORS = [
   { name: "White", value: "#ffffff" },
   { name: "Black", value: "#0a0a0a" },
@@ -120,7 +147,7 @@ export function TextStyleSection({ style, onStyleChange }: TextStyleSectionProps
         <div className="flex items-center gap-3 pt-2">
           <input
             type="color"
-            value={style.fill}
+            value={toHexColor(style.fill)}
             onChange={(e) => onStyleChange({ fill: e.target.value })}
             className="h-8 w-12 cursor-pointer rounded border bg-transparent"
           />

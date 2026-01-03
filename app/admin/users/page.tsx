@@ -4,7 +4,29 @@ import { UsersTable } from "@/components/admin/users-table";
 async function getAllUsers() {
   const supabase = await createClient();
 
-  // Get all users from profiles
+  // Try to use the new storage summary view first
+  const { data: usersWithStorage, error: viewError } = await supabase
+    .from("user_storage_summary")
+    .select("*")
+    .order("storage_bytes", { ascending: false });
+
+  if (!viewError && usersWithStorage) {
+    return usersWithStorage.map((u) => ({
+      id: u.user_id,
+      email: u.email,
+      fullName: u.full_name,
+      avatarUrl: u.avatar_url,
+      createdAt: u.created_at,
+      projectCount: u.project_count || 0,
+      previewCount: u.preview_count || 0,
+      storageBytes: Number(u.storage_bytes) || 0,
+      assetCount: u.asset_count || 0,
+    }));
+  }
+
+  // Fallback to old method if view doesn't exist yet
+  console.warn("user_storage_summary view not found, using fallback query");
+
   const { data: profiles, error } = await supabase
     .from("profiles")
     .select("id, email, full_name, avatar_url, created_at")
@@ -44,6 +66,8 @@ async function getAllUsers() {
     createdAt: profile.created_at,
     projectCount: projectCountMap.get(profile.id) || 0,
     previewCount: previewCountMap.get(profile.id) || 0,
+    storageBytes: 0,
+    assetCount: 0,
   }));
 }
 

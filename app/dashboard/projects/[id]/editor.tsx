@@ -49,6 +49,8 @@ import { useOnboarding } from "@/hooks/use-onboarding";
 import { WelcomeModal } from "@/components/onboarding/welcome-modal";
 import { EditorTour } from "@/components/onboarding/editor-tour";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { MediaPicker } from "@/components/editor/media-picker";
+import type { MediaAsset } from "@/types";
 
 // Zoom levels
 const ZOOM_MIN = 0.1;
@@ -85,6 +87,7 @@ export function ProjectEditor({
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isBatchExportOpen, setIsBatchExportOpen] = useState(false);
   const [isAppStorePreviewOpen, setIsAppStorePreviewOpen] = useState(false);
+  const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
   const [currentMockup, setCurrentMockup] = useState<DeviceMockup | null>(null);
   const [currentBezel, setCurrentBezel] = useState<BezelConfig | null>(null);
   const deviceFrameRef = useRef<Group | null>(null);
@@ -337,6 +340,20 @@ export function ProjectEditor({
         }
 
         canvas.renderAll();
+
+        // Generate thumbnail for the first preview after initial render
+        const thumbnailUrl = canvas.toDataURL({
+          format: "png",
+          quality: 0.5,
+          multiplier: 0.2,
+        });
+        // Update the preview in state with the fresh thumbnail
+        setPreviews((prev) =>
+          prev.map((p) =>
+            p.id === firstPreview.id ? { ...p, thumbnailUrl } : p
+          )
+        );
+
         // Initialize history after loading
         initHistory(canvas, firstPreview.background || "#0a0a0a");
         // Reset loading flag after initial load is complete
@@ -352,6 +369,20 @@ export function ProjectEditor({
     } else {
       // Initialize history for new canvas
       initHistory(canvas, "#0a0a0a");
+
+      // Generate thumbnail for empty canvas (just shows background)
+      if (firstPreview) {
+        const thumbnailUrl = canvas.toDataURL({
+          format: "png",
+          quality: 0.5,
+          multiplier: 0.2,
+        });
+        setPreviews((prev) =>
+          prev.map((p) =>
+            p.id === firstPreview.id ? { ...p, thumbnailUrl } : p
+          )
+        );
+      }
     }
 
     return () => {
@@ -995,6 +1026,16 @@ export function ProjectEditor({
       e.target.value = "";
     }
   };
+
+  // Handle media asset selection from Media Library
+  const handleMediaAssetSelect = useCallback(
+    (asset: MediaAsset) => {
+      // Use the Cloudinary URL directly - no need to upload again
+      addScreenshot(asset.cloudinaryUrl);
+      setIsMediaPickerOpen(false);
+    },
+    [addScreenshot]
+  );
 
   // Drag and drop handlers
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -1882,7 +1923,6 @@ export function ProjectEditor({
   // Helper to upload base64 images in canvas JSON to Cloudinary
   const uploadBase64ImagesToCloudinary = async (
     canvasJson: Record<string, unknown>,
-    userId: string,
     projectId: string
   ): Promise<Record<string, unknown>> => {
     if (!isCloudinaryConfigured()) return canvasJson;
@@ -1890,22 +1930,37 @@ export function ProjectEditor({
     const objects = canvasJson.objects as Array<Record<string, unknown>> | undefined;
     if (!objects) return canvasJson;
 
-    const updatedObjects = await Promise.all(
-      objects.map(async (obj, index) => {
-        // Check if it's an image with base64 src
-        if (obj.type === "Image" && typeof obj.src === "string" && obj.src.startsWith("data:")) {
-          try {
-            const blob = dataUrlToBlob(obj.src);
-            const result = await uploadToCloudinary(blob, userId, projectId, index);
-            return { ...obj, src: result.secure_url };
-          } catch (error) {
-            console.error("Failed to upload image to Cloudinary:", error);
-            return obj; // Keep base64 if upload fails
-          }
+    let uploadIndex = 0;
+
+    // Recursive function to process objects (handles groups)
+    const processObject = async (obj: Record<string, unknown>): Promise<Record<string, unknown>> => {
+      // Check if it's a group with nested objects
+      if ((obj.type === "Group" || obj.type === "group") && Array.isArray(obj.objects)) {
+        const nestedObjects = obj.objects as Array<Record<string, unknown>>;
+        const updatedNested = await Promise.all(nestedObjects.map(processObject));
+        return { ...obj, objects: updatedNested };
+      }
+
+      // Check if it's an image with base64 src
+      if (
+        (obj.type === "Image" || obj.type === "image") &&
+        typeof obj.src === "string" &&
+        obj.src.startsWith("data:")
+      ) {
+        try {
+          const blob = dataUrlToBlob(obj.src);
+          const result = await uploadToCloudinary(blob, projectId, uploadIndex++);
+          return { ...obj, src: result.secure_url };
+        } catch (error) {
+          console.error("Failed to upload image to Cloudinary:", error);
+          return obj; // Keep base64 if upload fails
         }
-        return obj;
-      })
-    );
+      }
+
+      return obj;
+    };
+
+    const updatedObjects = await Promise.all(objects.map(processObject));
 
     return { ...canvasJson, objects: updatedObjects };
   };
@@ -1944,6 +1999,9 @@ export function ProjectEditor({
       // Get user for Cloudinary uploads
       const { data: { user } } = await supabase.auth.getUser();
 
+      // Track processed canvas JSON for each preview (with Cloudinary URLs)
+      const processedPreviews: Map<string, Record<string, unknown>> = new Map();
+
       // Upload base64 images to Cloudinary and save previews
       const results = await Promise.all(
         previewsToSave.map(async (preview) => {
@@ -1952,9 +2010,10 @@ export function ProjectEditor({
           if (user && preview.canvasJson) {
             processedCanvasJson = await uploadBase64ImagesToCloudinary(
               preview.canvasJson as Record<string, unknown>,
-              user.id,
               project.id
             );
+            // Track the processed JSON
+            processedPreviews.set(preview.id, processedCanvasJson as Record<string, unknown>);
           }
 
           return supabase
@@ -1972,6 +2031,37 @@ export function ProjectEditor({
       const failed = results.filter((r) => r.error);
 
       if (failed.length === 0) {
+        // Update local previews state with processed canvas JSON (Cloudinary URLs)
+        if (processedPreviews.size > 0) {
+          setPreviews((prev) =>
+            prev.map((p) => {
+              const processed = processedPreviews.get(p.id);
+              return processed ? { ...p, canvasJson: processed } : p;
+            })
+          );
+
+          // If active preview was processed, reload the canvas to sync
+          const activeProcessed = processedPreviews.get(activePreview.id);
+          if (activeProcessed && fabricRef.current) {
+            await fabricRef.current.loadFromJSON(activeProcessed);
+            applyBackground(fabricRef.current, background);
+            fabricRef.current.renderAll();
+          }
+        }
+
+        // Update media asset usage tracking for saved previews
+        // This runs in the background - don't wait for it
+        previewsToSave.forEach((preview) => {
+          const canvasJson = processedPreviews.get(preview.id) || preview.canvasJson;
+          if (canvasJson) {
+            fetch("/api/media/usage", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ previewId: preview.id, canvasJson }),
+            }).catch((err) => console.error("Usage tracking error:", err));
+          }
+        });
+
         // Clear all dirty flags
         setDirtyPreviewIds(new Set());
         toast.success(`Saved ${previewsToSave.length} preview${previewsToSave.length > 1 ? "s" : ""}`);
@@ -2158,6 +2248,40 @@ export function ProjectEditor({
     <TooltipProvider delayDuration={300}>
       {/* Editor container - covers entire SidebarInset area */}
       <div className="absolute inset-0 z-50 flex flex-col bg-background">
+        {/* Full-screen saving overlay */}
+        {isSaving && (
+          <div className="fixed inset-0 flex items-center justify-center backdrop-blur-md bg-black/60 z-[100]">
+            {/* Animated background glow */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-orange-500/20 rounded-full blur-[150px] animate-pulse" />
+              <div className="absolute top-1/3 left-1/3 w-[300px] h-[300px] bg-amber-500/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '500ms' }} />
+            </div>
+
+            {/* Content card */}
+            <div className="relative flex flex-col items-center gap-6 px-12 py-10 rounded-3xl bg-neutral-900/80 backdrop-blur-xl border border-white/10 shadow-2xl">
+              {/* Animated spinner with gradient ring */}
+              <div className="relative">
+                <div className="absolute -inset-3 rounded-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 opacity-40 blur-md animate-spin-slow" />
+                <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-neutral-800 to-neutral-900 border border-white/10 shadow-xl">
+                  <Loader2 className="h-10 w-10 text-orange-400 animate-spin" />
+                </div>
+              </div>
+
+              <div className="text-center">
+                <p className="text-xl font-semibold text-white mb-2">Saving your work</p>
+                <p className="text-sm text-neutral-400">Uploading images & syncing changes...</p>
+              </div>
+
+              {/* Progress dots */}
+              <div className="flex gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Editor header - glassmorphism styling */}
         <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/50 bg-background/80 backdrop-blur-xl px-2 md:px-4">
           {/* Left side - back + project name */}
@@ -2265,7 +2389,7 @@ export function ProjectEditor({
 
             <Separator orientation="vertical" className="mx-1 h-6" />
 
-            {/* Clear canvas */}
+            {/* Clear canvas - hidden on mobile */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -2273,6 +2397,7 @@ export function ProjectEditor({
                   size="icon"
                   onClick={handleClear}
                   disabled={!hasScreenshot}
+                  className="hidden sm:inline-flex"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -2308,7 +2433,7 @@ export function ProjectEditor({
               </TooltipContent>
             </Tooltip>
 
-            {/* Export dropdown */}
+            {/* Export dropdown - hidden on mobile */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -2316,7 +2441,7 @@ export function ProjectEditor({
                   variant="ghost"
                   size="sm"
                   disabled={!hasScreenshot && previews.length === 0}
-                  className="gap-1 px-2"
+                  className="hidden sm:inline-flex gap-1 px-2"
                 >
                   <Download className="h-4 w-4" />
                   <ChevronDown className="h-3 w-3" />
@@ -2346,7 +2471,7 @@ export function ProjectEditor({
             {/* Theme toggle */}
             <ThemeToggle />
 
-            {/* Mobile menu for zoom and other options */}
+            {/* Mobile menu - zoom, clear, export options */}
             <div className="sm:hidden">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -2373,22 +2498,44 @@ export function ProjectEditor({
                     Fit to Screen
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setShowMobilePanel(true)}>
-                    <SlidersHorizontal className="h-4 w-4" />
-                    Controls Panel
+                  <DropdownMenuItem onClick={handleClear} disabled={!hasScreenshot}>
+                    <Trash2 className="h-4 w-4" />
+                    Clear Canvas
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setIsExportOpen(true)}
+                    disabled={!hasScreenshot}
+                  >
+                    <Download className="h-4 w-4" />
+                    Export Preview
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setIsBatchExportOpen(true)}
+                    disabled={previews.length === 0}
+                  >
+                    <Package className="h-4 w-4" />
+                    Export All ({previews.length})
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
 
-            {/* Right panel toggle - desktop only */}
+            {/* Controls panel toggle - opens sheet below lg, toggles inline panel at lg+ */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant={showRightPanel ? "secondary" : "ghost"}
                   size="icon"
-                  onClick={() => setShowRightPanel(!showRightPanel)}
-                  className="hidden lg:flex"
+                  onClick={() => {
+                    // Below lg breakpoint, open the sheet
+                    if (window.innerWidth < 1024) {
+                      setShowMobilePanel(true);
+                    } else {
+                      // At lg+, toggle inline panel
+                      setShowRightPanel(!showRightPanel);
+                    }
+                  }}
                 >
                   <PanelRight className="h-4 w-4" />
                 </Button>
@@ -2461,7 +2608,7 @@ export function ProjectEditor({
                         linear-gradient(135deg, rgba(10, 10, 10, 0.95) 0%, rgba(20, 20, 30, 0.95) 100%)
                       `,
                     }}
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => setIsMediaPickerOpen(true)}
                   >
                     {/* Content wrapper with inverse zoom to maintain readable size */}
                     <div
@@ -2487,7 +2634,7 @@ export function ProjectEditor({
                       <div className="relative text-center">
                         <p className="text-xl font-semibold text-white mb-1">Drop screenshot here</p>
                         <p className="text-sm text-neutral-400">
-                          or <span className="text-orange-400 group-hover/empty:text-orange-300 transition-colors">click to browse</span>
+                          or <span className="text-orange-400 group-hover/empty:text-orange-300 transition-colors">click to add image</span>
                         </p>
                       </div>
 
@@ -2498,6 +2645,9 @@ export function ProjectEditor({
                         </span>
                         <span className="px-3 py-1 text-xs rounded-full bg-white/5 text-neutral-400 border border-white/10">
                           Drag & Drop
+                        </span>
+                        <span className="px-3 py-1 text-xs rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                          Media Library
                         </span>
                       </div>
                     </div>
@@ -2548,7 +2698,7 @@ export function ProjectEditor({
               onAddText={handleAddText}
               selectedTextStyle={selectedTextStyle}
               onTextStyleChange={handleTextStyleChange}
-              onUploadScreenshot={() => fileInputRef.current?.click()}
+              onUploadScreenshot={() => setIsMediaPickerOpen(true)}
               hasSelectedImage={hasSelectedImage}
               onRemoveBackground={handleRemoveBackground}
               isRemovingBackground={isRemovingBackground}
@@ -2638,7 +2788,7 @@ export function ProjectEditor({
                 onAddText={handleAddText}
                 selectedTextStyle={selectedTextStyle}
                 onTextStyleChange={handleTextStyleChange}
-                onUploadScreenshot={() => fileInputRef.current?.click()}
+                onUploadScreenshot={() => setIsMediaPickerOpen(true)}
                 hasSelectedImage={hasSelectedImage}
                 onRemoveBackground={handleRemoveBackground}
                 isRemovingBackground={isRemovingBackground}
@@ -2690,6 +2840,14 @@ export function ProjectEditor({
             setShowTour(false);
             completeTour();
           }}
+        />
+
+        {/* Media picker dialog */}
+        <MediaPicker
+          open={isMediaPickerOpen}
+          onOpenChange={setIsMediaPickerOpen}
+          onSelect={handleMediaAssetSelect}
+          title="Add Screenshot"
         />
       </div>
     </TooltipProvider>

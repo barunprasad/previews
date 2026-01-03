@@ -11,6 +11,9 @@ import {
   LayoutTemplate,
   Sparkles,
   Package,
+  FolderOpen,
+  Fingerprint,
+  Cloud,
 } from "lucide-react";
 import { BentoGrid, BentoGridItem } from "@/components/ui/aceternity/bento-grid";
 
@@ -252,6 +255,116 @@ const features = [
               ZIP
             </div>
           </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    icon: FolderOpen,
+    title: "Media Library",
+    description:
+      "Organize all your screenshots in one place. Reuse assets across multiple projects effortlessly.",
+    gradient: "from-sky-500 to-blue-500",
+    header: (
+      <div className="flex h-full min-h-[8rem] items-center justify-center bg-gradient-to-br from-sky-500/10 via-blue-500/5 to-indigo-500/10 dark:from-sky-500/20 dark:via-blue-500/10 dark:to-indigo-500/20 p-4">
+        <div className="relative">
+          <div className="grid grid-cols-3 gap-1.5">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05 }}
+                className="h-8 w-8 rounded-md bg-gradient-to-br from-sky-400 to-blue-500 shadow-md ring-1 ring-white/20"
+              />
+            ))}
+          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.4 }}
+            className="absolute -bottom-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-sky-500 shadow-lg ring-2 ring-white dark:ring-slate-900"
+          >
+            <FolderOpen className="h-3 w-3 text-white" />
+          </motion.div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    icon: Fingerprint,
+    title: "Smart Deduplication",
+    description:
+      "Upload once, use everywhere. Duplicate images are automatically detected to save storage.",
+    gradient: "from-lime-500 to-green-500",
+    header: (
+      <div className="flex h-full min-h-[8rem] items-center justify-center bg-gradient-to-br from-lime-500/10 via-green-500/5 to-emerald-500/10 dark:from-lime-500/20 dark:via-green-500/10 dark:to-emerald-500/20 p-4">
+        <div className="relative flex items-center gap-3">
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="h-14 w-10 rounded-lg bg-gradient-to-br from-lime-400 to-green-500 shadow-lg ring-1 ring-white/20"
+          />
+          <motion.div
+            initial={{ scale: 0 }}
+            whileInView={{ scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2, type: "spring" }}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 shadow-lg"
+          >
+            <Fingerprint className="h-4 w-4 text-white" />
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 10 }}
+            whileInView={{ opacity: 0.4, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 }}
+            className="h-14 w-10 rounded-lg border-2 border-dashed border-green-500/50 bg-green-500/10"
+          />
+        </div>
+      </div>
+    ),
+  },
+  {
+    icon: Cloud,
+    title: "Cloud Sync",
+    description:
+      "Your media library is always available. Access your assets from any device, anytime.",
+    gradient: "from-blue-500 to-indigo-500",
+    header: (
+      <div className="flex h-full min-h-[8rem] items-center justify-center bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-violet-500/10 dark:from-blue-500/20 dark:via-indigo-500/10 dark:to-violet-500/20 p-4">
+        <div className="relative">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="relative"
+          >
+            <Cloud className="h-16 w-16 text-blue-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]" />
+            <motion.div
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              className="absolute -bottom-1 left-1/2 -translate-x-1/2"
+            >
+              <div className="flex gap-0.5">
+                {[0, 1, 2].map((i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ y: -5, opacity: 0 }}
+                    whileInView={{ y: 0, opacity: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.4 + i * 0.1, repeat: Infinity, repeatType: "reverse", duration: 0.8 }}
+                    className="h-1.5 w-1.5 rounded-full bg-blue-400"
+                  />
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
         </div>
       </div>
     ),

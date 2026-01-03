@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createProjectSchema, updateProjectSchema } from "@/lib/validations/project";
-import { deleteProjectCloudinaryImages } from "@/lib/cloudinary/server";
 import type { ActionState } from "@/types";
 
 export async function createProjectAction(
@@ -69,23 +68,12 @@ export async function deleteProjectAction(projectId: string): Promise<ActionStat
     };
   }
 
-  // First, fetch all previews to get their canvas_json for Cloudinary cleanup
-  const { data: previews } = await supabase
-    .from("previews")
-    .select("canvas_json")
-    .eq("project_id", projectId);
+  // Note: We do NOT delete Cloudinary images when deleting a project.
+  // Images stay in the user's media library and can be reused across projects.
+  // The media_asset_usages entries will be cleaned up automatically via cascade
+  // when previews are deleted (which happens when the project is deleted).
 
-  // Delete Cloudinary images (non-blocking, don't fail if this errors)
-  if (previews && previews.length > 0) {
-    try {
-      await deleteProjectCloudinaryImages(previews);
-    } catch (error) {
-      // Log but don't fail the deletion
-      console.error("Failed to delete Cloudinary images:", error);
-    }
-  }
-
-  // Delete the project (cascades to previews via DB)
+  // Delete the project (cascades to previews and media_asset_usages via DB)
   const { error } = await supabase
     .from("projects")
     .delete()

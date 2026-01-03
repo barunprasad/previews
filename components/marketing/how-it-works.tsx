@@ -15,9 +15,9 @@ const steps = [
   {
     step: "02",
     icon: Upload,
-    title: "Upload your screenshots",
+    title: "Add your screenshots",
     description:
-      "Drag and drop your app screenshots. They automatically fit the device screen perfectly.",
+      "Pick from your media library or upload new screenshots. They automatically fit the device screen perfectly.",
     gradient: "from-[var(--accent-amber)] to-[var(--accent-gold)]",
   },
   {

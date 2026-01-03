@@ -1,14 +1,13 @@
 // Cloudinary configuration utilities
 
 const CLOUDINARY_CLOUD = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD;
-const CLOUDINARY_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_PRESET;
 
 /**
  * Check if Cloudinary is properly configured.
- * Returns true if both cloud name and upload preset are set.
+ * Returns true if cloud name is set. API key/secret are validated server-side.
  */
 export function isCloudinaryConfigured(): boolean {
-  return !!(CLOUDINARY_CLOUD && CLOUDINARY_PRESET);
+  return !!CLOUDINARY_CLOUD;
 }
 
 /**
@@ -18,11 +17,9 @@ export function isCloudinaryConfigured(): boolean {
 export function getCloudinaryStatus(): {
   configured: boolean;
   hasCloudName: boolean;
-  hasUploadPreset: boolean;
 } {
   return {
     configured: isCloudinaryConfigured(),
     hasCloudName: !!CLOUDINARY_CLOUD,
-    hasUploadPreset: !!CLOUDINARY_PRESET,
   };
 }

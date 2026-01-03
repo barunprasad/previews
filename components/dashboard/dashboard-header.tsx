@@ -9,6 +9,7 @@ import {
   LayoutTemplate,
   Plus,
   Shield,
+  ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +38,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
 
   const isProjectsActive = pathname === "/dashboard/projects" || pathname.startsWith("/dashboard/projects/");
   const isTemplatesActive = pathname === "/dashboard/templates";
+  const isMediaActive = pathname === "/dashboard/media";
 
   return (
     <motion.header
@@ -87,6 +89,21 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                   <LayoutTemplate className="mr-2 h-4 w-4" />
                   Template Library
                   {isTemplatesActive && (
+                    <span className="ml-auto h-1.5 w-1.5 rounded-full bg-orange-500" />
+                  )}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link
+                  href="/dashboard/media"
+                  className={cn(
+                    "flex items-center rounded-lg",
+                    isMediaActive && "bg-orange-500/10 text-orange-500"
+                  )}
+                >
+                  <ImageIcon className="mr-2 h-4 w-4" />
+                  Media Library
+                  {isMediaActive && (
                     <span className="ml-auto h-1.5 w-1.5 rounded-full bg-orange-500" />
                   )}
                 </Link>

@@ -93,6 +93,42 @@ export interface CloudinaryUploadResponse {
   bytes: number;
 }
 
+// Media Library Types
+export interface MediaAsset {
+  id: string;
+  userId: string;
+  cloudinaryPublicId: string;
+  cloudinaryUrl: string;
+  contentHash: string;
+  filename: string | null;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  width: number | null;
+  height: number | null;
+  createdAt: string;
+  lastUsedAt: string | null;
+  // From view join
+  usageCount?: number;
+}
+
+export interface MediaAssetUsage {
+  id: string;
+  mediaAssetId: string;
+  previewId: string;
+  createdAt: string;
+}
+
+// Media asset with usage details (for UI)
+export interface MediaAssetWithUsage extends MediaAsset {
+  usageCount: number;
+  usages?: {
+    previewId: string;
+    previewName: string;
+    projectId: string;
+    projectName: string;
+  }[];
+}
+
 // Editor Types
 export interface EditorState {
   selectedDevice: DeviceFrame | null;
