@@ -11,6 +11,8 @@ import { travelAdventureSet, travelAdventureTemplates } from "./travel-adventure
 import { educationStarterSet, educationStarterTemplates } from "./education-starter";
 import { entertainmentGlowSet, entertainmentGlowTemplates } from "./entertainment-glow";
 import { luxuryShopSet, luxuryShopTemplates } from "./luxury-shop";
+import { ecommerceProSet, ecommerceProTemplates } from "./ecommerce-pro";
+import { ecommerceShowcaseSet, ecommerceShowcaseTemplates } from "./ecommerce-showcase";
 
 // All template sets
 export const templateSets: TemplateSet[] = [
@@ -22,6 +24,8 @@ export const templateSets: TemplateSet[] = [
   socialVibrantSet,
   darkPremiumSet,
   ecommerceStarterSet,
+  ecommerceProSet,
+  ecommerceShowcaseSet,
   travelAdventureSet,
   educationStarterSet,
   entertainmentGlowSet,
@@ -139,6 +143,8 @@ export {
   socialVibrantTemplates,
   darkPremiumTemplates,
   ecommerceStarterTemplates,
+  ecommerceProTemplates,
+  ecommerceShowcaseTemplates,
   travelAdventureTemplates,
   educationStarterTemplates,
   entertainmentGlowTemplates,

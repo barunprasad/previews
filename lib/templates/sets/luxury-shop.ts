@@ -543,7 +543,7 @@ const shopCtaTemplate: PreviewTemplate = {
         fontFamily: designTokens.fontFamily,
         fill: "#22c55e",
         left: CANVAS_WIDTH / 2,
-        top: 540,
+        top: 570,
         width: 1000,
         textAlign: "center",
         originX: "center",

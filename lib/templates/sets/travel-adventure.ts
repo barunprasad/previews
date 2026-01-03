@@ -162,7 +162,7 @@ const discoverPlacesTemplate: PreviewTemplate = {
         fontFamily: designTokens.fontFamily,
         fill: designTokens.secondaryColor,
         left: CANVAS_WIDTH / 2,
-        top: 495,
+        top: 530,
         width: 1050,
         textAlign: "center",
         originX: "center",

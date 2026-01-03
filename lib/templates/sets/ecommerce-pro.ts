@@ -1,0 +1,1031 @@
+import type { TemplateSet, PreviewTemplate } from "@/types";
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from "../placeholders";
+
+// Design tokens for E-commerce Pro - Premium, sophisticated, conversion-focused
+// Pattern: Alternating angles create visual rhythm
+// Odd previews: negative angles (tilt left)
+// Even previews: positive angles (tilt right)
+const designTokens = {
+  primaryColor: "#ffffff",
+  secondaryColor: "rgba(255, 255, 255, 0.85)",
+  accentColor: "#fbbf24", // Gold for premium feel
+  fontFamily: "system-ui, -apple-system, sans-serif",
+};
+
+// Angle pattern for cohesive visual rhythm
+const ANGLES = {
+  heroCenter: -12,
+  tiltLeft: 15,
+  tiltRight: -15,
+  subtleLeft: 8,
+  subtleRight: -8,
+  dramaticLeft: 18,
+  dramaticRight: -18,
+};
+
+// Preview 1: Grand Hero - Dramatic center angle with premium glow
+const grandHeroTemplate: PreviewTemplate = {
+  id: "ecp-grand-hero",
+  name: "Grand Hero",
+  description: "Premium hero with dramatic angle and gold accents",
+  category: "device-showcase",
+  deviceType: "both",
+  background: "linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 30%, #16213e 60%, #0f0f0f 100%)",
+  placeholders: [
+    {
+      id: "grand-hero-screenshot",
+      name: "Main Screenshot",
+      url: "/placeholders/screenshots/app-home.svg",
+      slot: "primary",
+    },
+  ],
+  canvasJson: {
+    version: "6.0.0",
+    objects: [
+      // Premium badge
+      {
+        type: "rect",
+        left: CANVAS_WIDTH / 2 - 140,
+        top: 140,
+        width: 280,
+        height: 72,
+        rx: 36,
+        ry: 36,
+        fill: "linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%)",
+        originX: "left",
+        originY: "top",
+      },
+      {
+        type: "textbox",
+        text: "NEW COLLECTION",
+        fontSize: 24,
+        fontWeight: "700",
+        fontFamily: designTokens.fontFamily,
+        fill: "#000000",
+        left: CANVAS_WIDTH / 2,
+        top: 160,
+        width: 280,
+        textAlign: "center",
+        originX: "center",
+        originY: "top",
+        charSpacing: 100,
+      },
+      // Main headline
+      {
+        type: "textbox",
+        text: "Shop the Future",
+        fontSize: 140,
+        fontWeight: "800",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.primaryColor,
+        left: CANVAS_WIDTH / 2,
+        top: 280,
+        width: 1200,
+        textAlign: "center",
+        originX: "center",
+        originY: "top",
+        lineHeight: 1.0,
+      },
+      // Subheadline
+      {
+        type: "textbox",
+        text: "Premium shopping experience",
+        fontSize: 52,
+        fontWeight: "400",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.secondaryColor,
+        left: CANVAS_WIDTH / 2,
+        top: 480,
+        width: 1000,
+        textAlign: "center",
+        originX: "center",
+        originY: "top",
+      },
+      // Screenshot - dramatic center angle
+      {
+        type: "image",
+        src: "/placeholders/screenshots/app-home.svg",
+        left: CANVAS_WIDTH / 2,
+        top: 1620,
+        scaleX: 1.65,
+        scaleY: 1.65,
+        angle: ANGLES.heroCenter,
+        originX: "center",
+        originY: "center",
+        shadow: {
+          color: "rgba(251, 191, 36, 0.35)",
+          blur: 160,
+          offsetX: 60,
+          offsetY: 80,
+        },
+        data: {
+          isPlaceholder: true,
+          placeholderId: "grand-hero-screenshot",
+          replacementSlot: "primary",
+        },
+      },
+    ],
+  },
+};
+
+// Preview 2: Style Discovery - Tilt right with left-aligned text
+const styleDiscoveryTemplate: PreviewTemplate = {
+  id: "ecp-style-discovery",
+  name: "Style Discovery",
+  description: "Discover curated collections",
+  category: "feature-callout",
+  deviceType: "both",
+  background: "linear-gradient(145deg, #581c87 0%, #7c3aed 50%, #a855f7 100%)",
+  placeholders: [
+    {
+      id: "style-discovery-screenshot",
+      name: "Discovery Screenshot",
+      url: "/placeholders/screenshots/app-dashboard.svg",
+      slot: "primary",
+    },
+  ],
+  canvasJson: {
+    version: "6.0.0",
+    objects: [
+      // Category label
+      {
+        type: "textbox",
+        text: "CURATED",
+        fontSize: 26,
+        fontWeight: "600",
+        fontFamily: designTokens.fontFamily,
+        fill: "rgba(255,255,255,0.6)",
+        left: 90,
+        top: 540,
+        width: 400,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+        charSpacing: 250,
+      },
+      // Headline
+      {
+        type: "textbox",
+        text: "Discover Your Style",
+        fontSize: 100,
+        fontWeight: "700",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.primaryColor,
+        left: 90,
+        top: 620,
+        width: 550,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+        lineHeight: 1.1,
+      },
+      // Description
+      {
+        type: "textbox",
+        text: "Hand-picked collections just for you",
+        fontSize: 42,
+        fontWeight: "400",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.secondaryColor,
+        left: 90,
+        top: 960,
+        width: 480,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+        lineHeight: 1.4,
+      },
+      // Screenshot - right side, tilted right
+      {
+        type: "image",
+        src: "/placeholders/screenshots/app-dashboard.svg",
+        left: 950,
+        top: 1480,
+        scaleX: 1.45,
+        scaleY: 1.45,
+        angle: ANGLES.tiltRight,
+        originX: "center",
+        originY: "center",
+        shadow: {
+          color: "rgba(168, 85, 247, 0.4)",
+          blur: 120,
+          offsetX: -40,
+          offsetY: 60,
+        },
+        data: {
+          isPlaceholder: true,
+          placeholderId: "style-discovery-screenshot",
+          replacementSlot: "primary",
+        },
+      },
+    ],
+  },
+};
+
+// Preview 3: Flash Sale - Urgent, tilted left with right text
+const flashSaleTemplate: PreviewTemplate = {
+  id: "ecp-flash-sale",
+  name: "Flash Sale",
+  description: "Urgency-driven flash sale showcase",
+  category: "feature-callout",
+  deviceType: "both",
+  background: "linear-gradient(160deg, #dc2626 0%, #ea580c 50%, #f97316 100%)",
+  placeholders: [
+    {
+      id: "flash-sale-screenshot",
+      name: "Sale Screenshot",
+      url: "/placeholders/screenshots/app-list.svg",
+      slot: "primary",
+    },
+  ],
+  canvasJson: {
+    version: "6.0.0",
+    objects: [
+      // Screenshot - left side, tilted left
+      {
+        type: "image",
+        src: "/placeholders/screenshots/app-list.svg",
+        left: 380,
+        top: 1480,
+        scaleX: 1.45,
+        scaleY: 1.45,
+        angle: ANGLES.tiltLeft,
+        originX: "center",
+        originY: "center",
+        shadow: {
+          color: "rgba(0,0,0,0.4)",
+          blur: 110,
+          offsetX: 40,
+          offsetY: 60,
+        },
+        data: {
+          isPlaceholder: true,
+          placeholderId: "flash-sale-screenshot",
+          replacementSlot: "primary",
+        },
+      },
+      // Urgency badge
+      {
+        type: "rect",
+        left: 750,
+        top: 520,
+        width: 200,
+        height: 60,
+        rx: 30,
+        ry: 30,
+        fill: "#ffffff",
+        originX: "left",
+        originY: "top",
+      },
+      {
+        type: "textbox",
+        text: "24H LEFT",
+        fontSize: 24,
+        fontWeight: "800",
+        fontFamily: designTokens.fontFamily,
+        fill: "#dc2626",
+        left: 850,
+        top: 536,
+        width: 200,
+        textAlign: "center",
+        originX: "center",
+        originY: "top",
+      },
+      // Headline
+      {
+        type: "textbox",
+        text: "Flash Deals",
+        fontSize: 110,
+        fontWeight: "800",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.primaryColor,
+        left: 750,
+        top: 630,
+        width: 500,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+        lineHeight: 1.1,
+      },
+      // Discount
+      {
+        type: "textbox",
+        text: "Up to 70% OFF",
+        fontSize: 48,
+        fontWeight: "700",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.accentColor,
+        left: 750,
+        top: 940,
+        width: 500,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+      },
+    ],
+  },
+};
+
+// Preview 4: Categories Grid - Center with subtle opposite angle
+const categoriesTemplate: PreviewTemplate = {
+  id: "ecp-categories",
+  name: "Categories",
+  description: "Browse all categories",
+  category: "device-showcase",
+  deviceType: "both",
+  background: "linear-gradient(180deg, #0f172a 0%, #1e293b 50%, #334155 100%)",
+  placeholders: [
+    {
+      id: "categories-screenshot",
+      name: "Categories Screenshot",
+      url: "/placeholders/screenshots/app-dashboard.svg",
+      slot: "primary",
+    },
+  ],
+  canvasJson: {
+    version: "6.0.0",
+    objects: [
+      // Label
+      {
+        type: "textbox",
+        text: "EXPLORE",
+        fontSize: 28,
+        fontWeight: "600",
+        fontFamily: designTokens.fontFamily,
+        fill: "rgba(255,255,255,0.5)",
+        left: CANVAS_WIDTH / 2,
+        top: 160,
+        width: 400,
+        textAlign: "center",
+        originX: "center",
+        originY: "top",
+        charSpacing: 300,
+      },
+      // Headline
+      {
+        type: "textbox",
+        text: "Everything You Need",
+        fontSize: 115,
+        fontWeight: "700",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.primaryColor,
+        left: CANVAS_WIDTH / 2,
+        top: 240,
+        width: 1150,
+        textAlign: "center",
+        originX: "center",
+        originY: "top",
+        lineHeight: 1.1,
+      },
+      // Subtext
+      {
+        type: "textbox",
+        text: "1000+ categories to explore",
+        fontSize: 50,
+        fontWeight: "400",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.secondaryColor,
+        left: CANVAS_WIDTH / 2,
+        top: 480,
+        width: 1000,
+        textAlign: "center",
+        originX: "center",
+        originY: "top",
+      },
+      // Screenshot - center, subtle right tilt
+      {
+        type: "image",
+        src: "/placeholders/screenshots/app-dashboard.svg",
+        left: CANVAS_WIDTH / 2,
+        top: 1620,
+        scaleX: 1.6,
+        scaleY: 1.6,
+        angle: ANGLES.subtleRight,
+        originX: "center",
+        originY: "center",
+        shadow: {
+          color: "rgba(99, 102, 241, 0.3)",
+          blur: 140,
+          offsetX: -50,
+          offsetY: 70,
+        },
+        data: {
+          isPlaceholder: true,
+          placeholderId: "categories-screenshot",
+          replacementSlot: "primary",
+        },
+      },
+    ],
+  },
+};
+
+// Preview 5: Seamless Cart - Left placement with right text
+const seamlessCartTemplate: PreviewTemplate = {
+  id: "ecp-seamless-cart",
+  name: "Seamless Cart",
+  description: "Effortless cart and checkout",
+  category: "feature-callout",
+  deviceType: "both",
+  background: "#0a0a0a",
+  placeholders: [
+    {
+      id: "cart-screenshot",
+      name: "Cart Screenshot",
+      url: "/placeholders/screenshots/app-profile.svg",
+      slot: "primary",
+    },
+  ],
+  canvasJson: {
+    version: "6.0.0",
+    objects: [
+      // Screenshot - left side, dramatic left tilt
+      {
+        type: "image",
+        src: "/placeholders/screenshots/app-profile.svg",
+        left: 400,
+        top: 1450,
+        scaleX: 1.5,
+        scaleY: 1.5,
+        angle: ANGLES.dramaticLeft,
+        originX: "center",
+        originY: "center",
+        shadow: {
+          color: "rgba(34, 197, 94, 0.25)",
+          blur: 130,
+          offsetX: 50,
+          offsetY: 70,
+        },
+        data: {
+          isPlaceholder: true,
+          placeholderId: "cart-screenshot",
+          replacementSlot: "primary",
+        },
+      },
+      // Trust badge
+      {
+        type: "textbox",
+        text: "SECURE",
+        fontSize: 26,
+        fontWeight: "600",
+        fontFamily: designTokens.fontFamily,
+        fill: "#22c55e",
+        left: 750,
+        top: 520,
+        width: 400,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+        charSpacing: 200,
+      },
+      // Headline
+      {
+        type: "textbox",
+        text: "Seamless Checkout",
+        fontSize: 95,
+        fontWeight: "700",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.primaryColor,
+        left: 750,
+        top: 600,
+        width: 500,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+        lineHeight: 1.15,
+      },
+      // Description
+      {
+        type: "textbox",
+        text: "Apple Pay, Google Pay & all major cards",
+        fontSize: 40,
+        fontWeight: "400",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.secondaryColor,
+        left: 750,
+        top: 920,
+        width: 480,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+        lineHeight: 1.4,
+      },
+    ],
+  },
+};
+
+// Preview 6: Wishlist - Right placement with dramatic right angle
+const wishlistTemplate: PreviewTemplate = {
+  id: "ecp-wishlist",
+  name: "Wishlist",
+  description: "Save favorites for later",
+  category: "feature-callout",
+  deviceType: "both",
+  background: "linear-gradient(145deg, #be185d 0%, #ec4899 50%, #f472b6 100%)",
+  placeholders: [
+    {
+      id: "wishlist-screenshot",
+      name: "Wishlist Screenshot",
+      url: "/placeholders/screenshots/app-list.svg",
+      slot: "primary",
+    },
+  ],
+  canvasJson: {
+    version: "6.0.0",
+    objects: [
+      // Heart icon indicator (using text)
+      {
+        type: "textbox",
+        text: "FAVORITES",
+        fontSize: 26,
+        fontWeight: "600",
+        fontFamily: designTokens.fontFamily,
+        fill: "rgba(255,255,255,0.7)",
+        left: 90,
+        top: 540,
+        width: 400,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+        charSpacing: 200,
+      },
+      // Headline
+      {
+        type: "textbox",
+        text: "Save What You Love",
+        fontSize: 100,
+        fontWeight: "700",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.primaryColor,
+        left: 90,
+        top: 620,
+        width: 540,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+        lineHeight: 1.1,
+      },
+      // Description
+      {
+        type: "textbox",
+        text: "Never miss a sale on items you want",
+        fontSize: 42,
+        fontWeight: "400",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.secondaryColor,
+        left: 90,
+        top: 980,
+        width: 500,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+        lineHeight: 1.4,
+      },
+      // Screenshot - right side, dramatic right angle
+      {
+        type: "image",
+        src: "/placeholders/screenshots/app-list.svg",
+        left: 930,
+        top: 1480,
+        scaleX: 1.45,
+        scaleY: 1.45,
+        angle: ANGLES.dramaticRight,
+        originX: "center",
+        originY: "center",
+        shadow: {
+          color: "rgba(236, 72, 153, 0.4)",
+          blur: 120,
+          offsetX: -45,
+          offsetY: 65,
+        },
+        data: {
+          isPlaceholder: true,
+          placeholderId: "wishlist-screenshot",
+          replacementSlot: "primary",
+        },
+      },
+    ],
+  },
+};
+
+// Preview 7: Social Proof - Center with subtle left angle
+const socialProofTemplate: PreviewTemplate = {
+  id: "ecp-social-proof",
+  name: "Social Proof",
+  description: "Customer reviews and ratings",
+  category: "device-showcase",
+  deviceType: "both",
+  background: "linear-gradient(160deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%)",
+  placeholders: [
+    {
+      id: "reviews-screenshot",
+      name: "Reviews Screenshot",
+      url: "/placeholders/screenshots/app-profile.svg",
+      slot: "primary",
+    },
+  ],
+  canvasJson: {
+    version: "6.0.0",
+    objects: [
+      // Rating stars (text representation)
+      {
+        type: "textbox",
+        text: "★★★★★",
+        fontSize: 48,
+        fontWeight: "400",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.accentColor,
+        left: CANVAS_WIDTH / 2,
+        top: 150,
+        width: 400,
+        textAlign: "center",
+        originX: "center",
+        originY: "top",
+        charSpacing: 50,
+      },
+      // Headline
+      {
+        type: "textbox",
+        text: "Loved by Millions",
+        fontSize: 120,
+        fontWeight: "700",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.primaryColor,
+        left: CANVAS_WIDTH / 2,
+        top: 250,
+        width: 1150,
+        textAlign: "center",
+        originX: "center",
+        originY: "top",
+        lineHeight: 1.0,
+      },
+      // Stats
+      {
+        type: "textbox",
+        text: "4.9 rating from 500K+ reviews",
+        fontSize: 48,
+        fontWeight: "500",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.secondaryColor,
+        left: CANVAS_WIDTH / 2,
+        top: 460,
+        width: 1000,
+        textAlign: "center",
+        originX: "center",
+        originY: "top",
+      },
+      // Screenshot - center, subtle left tilt
+      {
+        type: "image",
+        src: "/placeholders/screenshots/app-profile.svg",
+        left: CANVAS_WIDTH / 2,
+        top: 1620,
+        scaleX: 1.6,
+        scaleY: 1.6,
+        angle: ANGLES.subtleLeft,
+        originX: "center",
+        originY: "center",
+        shadow: {
+          color: "rgba(59, 130, 246, 0.4)",
+          blur: 140,
+          offsetX: 50,
+          offsetY: 70,
+        },
+        data: {
+          isPlaceholder: true,
+          placeholderId: "reviews-screenshot",
+          replacementSlot: "primary",
+        },
+      },
+    ],
+  },
+};
+
+// Preview 8: Fast Delivery - Left placement with tilt
+const fastDeliveryTemplate: PreviewTemplate = {
+  id: "ecp-fast-delivery",
+  name: "Fast Delivery",
+  description: "Lightning fast shipping",
+  category: "feature-callout",
+  deviceType: "both",
+  background: "linear-gradient(145deg, #0d9488 0%, #14b8a6 50%, #2dd4bf 100%)",
+  placeholders: [
+    {
+      id: "delivery-screenshot",
+      name: "Delivery Screenshot",
+      url: "/placeholders/screenshots/app-home.svg",
+      slot: "primary",
+    },
+  ],
+  canvasJson: {
+    version: "6.0.0",
+    objects: [
+      // Screenshot - left side, tilted
+      {
+        type: "image",
+        src: "/placeholders/screenshots/app-home.svg",
+        left: 380,
+        top: 1480,
+        scaleX: 1.45,
+        scaleY: 1.45,
+        angle: ANGLES.tiltLeft,
+        originX: "center",
+        originY: "center",
+        shadow: {
+          color: "rgba(0,0,0,0.35)",
+          blur: 110,
+          offsetX: 40,
+          offsetY: 60,
+        },
+        data: {
+          isPlaceholder: true,
+          placeholderId: "delivery-screenshot",
+          replacementSlot: "primary",
+        },
+      },
+      // Speed indicator
+      {
+        type: "textbox",
+        text: "SAME DAY",
+        fontSize: 26,
+        fontWeight: "700",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.accentColor,
+        left: 750,
+        top: 540,
+        width: 400,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+        charSpacing: 200,
+      },
+      // Headline
+      {
+        type: "textbox",
+        text: "Lightning Delivery",
+        fontSize: 100,
+        fontWeight: "700",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.primaryColor,
+        left: 750,
+        top: 620,
+        width: 500,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+        lineHeight: 1.1,
+      },
+      // Description
+      {
+        type: "textbox",
+        text: "Track orders in real-time",
+        fontSize: 44,
+        fontWeight: "400",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.secondaryColor,
+        left: 750,
+        top: 960,
+        width: 480,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+      },
+    ],
+  },
+};
+
+// Preview 9: Rewards Program - Right placement with angle
+const rewardsTemplate: PreviewTemplate = {
+  id: "ecp-rewards",
+  name: "Rewards",
+  description: "Earn while you shop",
+  category: "feature-callout",
+  deviceType: "both",
+  background: "linear-gradient(145deg, #b45309 0%, #d97706 40%, #f59e0b 100%)",
+  placeholders: [
+    {
+      id: "rewards-screenshot",
+      name: "Rewards Screenshot",
+      url: "/placeholders/screenshots/app-dashboard.svg",
+      slot: "primary",
+    },
+  ],
+  canvasJson: {
+    version: "6.0.0",
+    objects: [
+      // Label
+      {
+        type: "textbox",
+        text: "LOYALTY",
+        fontSize: 26,
+        fontWeight: "600",
+        fontFamily: designTokens.fontFamily,
+        fill: "rgba(255,255,255,0.7)",
+        left: 90,
+        top: 540,
+        width: 400,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+        charSpacing: 250,
+      },
+      // Headline
+      {
+        type: "textbox",
+        text: "Earn While You Shop",
+        fontSize: 100,
+        fontWeight: "700",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.primaryColor,
+        left: 90,
+        top: 620,
+        width: 560,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+        lineHeight: 1.1,
+      },
+      // Points indicator
+      {
+        type: "textbox",
+        text: "Get 5x points on every purchase",
+        fontSize: 42,
+        fontWeight: "400",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.secondaryColor,
+        left: 90,
+        top: 980,
+        width: 500,
+        textAlign: "left",
+        originX: "left",
+        originY: "top",
+        lineHeight: 1.4,
+      },
+      // Screenshot - right side, tilted
+      {
+        type: "image",
+        src: "/placeholders/screenshots/app-dashboard.svg",
+        left: 930,
+        top: 1480,
+        scaleX: 1.45,
+        scaleY: 1.45,
+        angle: ANGLES.tiltRight,
+        originX: "center",
+        originY: "center",
+        shadow: {
+          color: "rgba(217, 119, 6, 0.4)",
+          blur: 120,
+          offsetX: -40,
+          offsetY: 60,
+        },
+        data: {
+          isPlaceholder: true,
+          placeholderId: "rewards-screenshot",
+          replacementSlot: "primary",
+        },
+      },
+    ],
+  },
+};
+
+// Preview 10: Download CTA - Dramatic center with premium glow
+const downloadCtaTemplate: PreviewTemplate = {
+  id: "ecp-download-cta",
+  name: "Download CTA",
+  description: "Conversion-focused download screen",
+  category: "device-showcase",
+  deviceType: "both",
+  background: "linear-gradient(180deg, #000000 0%, #0a0a0a 30%, #171717 60%, #0a0a0a 100%)",
+  placeholders: [
+    {
+      id: "cta-screenshot",
+      name: "App Screenshot",
+      url: "/placeholders/screenshots/app-home.svg",
+      slot: "primary",
+    },
+  ],
+  canvasJson: {
+    version: "6.0.0",
+    objects: [
+      // Urgency/offer
+      {
+        type: "textbox",
+        text: "FREE SHIPPING ON FIRST ORDER",
+        fontSize: 26,
+        fontWeight: "600",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.accentColor,
+        left: CANVAS_WIDTH / 2,
+        top: 150,
+        width: 800,
+        textAlign: "center",
+        originX: "center",
+        originY: "top",
+        charSpacing: 150,
+      },
+      // Main CTA headline
+      {
+        type: "textbox",
+        text: "Start Shopping Today",
+        fontSize: 115,
+        fontWeight: "800",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.primaryColor,
+        left: CANVAS_WIDTH / 2,
+        top: 235,
+        width: 1150,
+        textAlign: "center",
+        originX: "center",
+        originY: "top",
+        lineHeight: 1.1,
+      },
+      // Platform availability
+      {
+        type: "textbox",
+        text: "Available on iOS and Android",
+        fontSize: 48,
+        fontWeight: "500",
+        fontFamily: designTokens.fontFamily,
+        fill: designTokens.secondaryColor,
+        left: CANVAS_WIDTH / 2,
+        top: 510,
+        width: 1000,
+        textAlign: "center",
+        originX: "center",
+        originY: "top",
+      },
+      // Screenshot - dramatic center angle with premium glow
+      {
+        type: "image",
+        src: "/placeholders/screenshots/app-home.svg",
+        left: CANVAS_WIDTH / 2,
+        top: 1620,
+        scaleX: 1.7,
+        scaleY: 1.7,
+        angle: -10,
+        originX: "center",
+        originY: "center",
+        shadow: {
+          color: "rgba(251, 191, 36, 0.5)",
+          blur: 180,
+          offsetX: 60,
+          offsetY: 80,
+        },
+        data: {
+          isPlaceholder: true,
+          placeholderId: "cta-screenshot",
+          replacementSlot: "primary",
+        },
+      },
+    ],
+  },
+};
+
+// Complete E-commerce Pro set with 10 templates
+export const ecommerceProSet: TemplateSet = {
+  id: "ecommerce-pro",
+  name: "E-commerce Pro",
+  description: "Premium 10-screenshot set with stunning angled designs for shopping apps",
+  category: "feature-focused",
+  appStoreCategories: ["ecommerce", "shopping"],
+  deviceType: "both",
+  previewCount: 10,
+  templates: [
+    grandHeroTemplate,
+    styleDiscoveryTemplate,
+    flashSaleTemplate,
+    categoriesTemplate,
+    seamlessCartTemplate,
+    wishlistTemplate,
+    socialProofTemplate,
+    fastDeliveryTemplate,
+    rewardsTemplate,
+    downloadCtaTemplate,
+  ],
+  designTokens,
+  tags: [
+    "ecommerce",
+    "shopping",
+    "premium",
+    "angled",
+    "isometric",
+    "retail",
+    "fashion",
+    "deals",
+    "conversion",
+    "pro",
+    "10-preview",
+  ],
+};
+
+export const ecommerceProTemplates = [
+  grandHeroTemplate,
+  styleDiscoveryTemplate,
+  flashSaleTemplate,
+  categoriesTemplate,
+  seamlessCartTemplate,
+  wishlistTemplate,
+  socialProofTemplate,
+  fastDeliveryTemplate,
+  rewardsTemplate,
+  downloadCtaTemplate,
+];
