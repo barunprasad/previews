@@ -4,6 +4,38 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://previews.app";
+
+// JSON-LD structured data
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "Previews",
+  description:
+    "Create beautiful app store screenshots for iOS and Android. Free, fast, and professional quality.",
+  url: baseUrl,
+  applicationCategory: "DesignApplication",
+  operatingSystem: "Web",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+  },
+  creator: {
+    "@type": "Organization",
+    name: "Previews",
+    url: baseUrl,
+  },
+  featureList: [
+    "iPhone and Android device mockups",
+    "Professional templates",
+    "Custom backgrounds and gradients",
+    "Text overlays and badges",
+    "High-quality PNG export",
+    "Batch export for App Store and Play Store",
+  ],
+};
+
 const geistSans = Geist({
   subsets: ["latin"],
   variable: "--font-sans",
@@ -17,6 +49,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(baseUrl),
   title: {
     default: "Previews - Create Beautiful App Store Screenshots",
     template: "%s | Previews",
@@ -32,12 +65,20 @@ export const metadata: Metadata = {
     "Play Store graphics",
     "app mockup",
     "screenshot generator",
+    "app store optimization",
+    "ASO tools",
   ],
   authors: [{ name: "Previews" }],
   creator: "Previews",
+  publisher: "Previews",
+  formatDetection: {
+    email: false,
+    telephone: false,
+  },
   openGraph: {
     type: "website",
     locale: "en_US",
+    url: baseUrl,
     siteName: "Previews",
     title: "Previews - Create Beautiful App Store Screenshots",
     description:
@@ -52,6 +93,16 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  alternates: {
+    canonical: baseUrl,
   },
 };
 
@@ -72,6 +123,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased min-h-screen bg-background`}
       >

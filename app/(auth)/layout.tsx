@@ -1,4 +1,18 @@
+import type { Metadata } from "next";
 import { Logo } from "@/components/ui/logo";
+
+export const metadata: Metadata = {
+  title: {
+    template: "%s | Previews",
+    default: "Account | Previews",
+  },
+  description:
+    "Access your Previews account to create beautiful app store screenshots for iOS and Android.",
+  robots: {
+    index: false, // Auth pages typically shouldn't be indexed
+    follow: true,
+  },
+};
 
 export default function AuthLayout({
   children,
