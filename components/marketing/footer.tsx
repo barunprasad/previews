@@ -27,6 +27,8 @@ export function Footer() {
             {[
               { href: "#features", label: "Features" },
               { href: "#how-it-works", label: "How it Works" },
+              { href: "/terms", label: "Terms" },
+              { href: "/privacy", label: "Privacy" },
               { href: "/login", label: "Sign in" },
             ].map((link) => (
               <Link
